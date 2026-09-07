@@ -110,6 +110,7 @@ There is no `Tax` field. `Currency` records what the core amounts are denominate
 | `Quantity` | Decimal, Optional | Required and must be greater than `0` when `IsFlatAmount` is `false` (Hourly); always `null` when `IsFlatAmount` is `true` (Flat). |
 | `UnitPrice` | Decimal, Optional | Required and must be `>= 0` when `IsFlatAmount` is `false`; always `null` when `IsFlatAmount` is `true`. Denominated in the invoice's `Currency`. |
 | `Amount` | Decimal | For an Hourly item: `Quantity * UnitPrice`, calculated by the backend — never trusted from the frontend. For a Flat item: entered directly by the admin and trusted as submitted — the one narrow, deliberate exception to "amount is always backend-calculated" (there is nothing to compute it from). For a referral-credit item: the admin's submitted positive magnitude, negated. |
+| `DurationText` | Text, Optional | Free-text label (e.g. "Fixed", "50%", "2 weeks") shown in place of the Unit(Hrs)/Rate columns for a Flat item. Required (non-empty) when `IsFlatAmount` is `true` and `IsReferralCredit` is `false`; always `null` for an Hourly item and for the referral-credit item. See `Docs/implementation_decisions.md` §10 for the invoice-wide Duration-column layout rule. |
 | `SortOrder` | Integer | Preserves line-item display order; the underlying relational store has no inherent row order for a "list" of items. A referral-credit item ignores this at render time (see `IsReferralCredit`). |
 
 ### 1.6 Entity: ProjectAlertSchedule

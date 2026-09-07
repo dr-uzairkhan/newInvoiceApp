@@ -49,8 +49,10 @@ function fakeData(
         quantity: "2",
         unitPrice: "150",
         amount: "300",
+        durationText: null,
       },
     ],
+    allItemsFlat: false,
     itemsNote: null,
     subtotal: "300",
     total: "300",
@@ -168,22 +170,34 @@ describe("buildInvoiceWorkbook", () => {
     expect(allValues.some((v) => v === "Note")).toBe(false);
   });
 
-  it("renders '-' for Qty/Rate on a Flat-mode item, and the real amount", async () => {
+  it("renders '-' for Qty/Rate on a Flat-mode item mixed with an Hourly item, and the real amount", async () => {
     const buffer = await buildInvoiceWorkbook(
       fakeData({
         items: [
           {
             id: "item_1",
+            description: "Consulting",
+            isFlatAmount: false,
+            isReferralCredit: false,
+            quantity: "2",
+            unitPrice: "150",
+            amount: "300",
+            durationText: null,
+          },
+          {
+            id: "item_2",
             description: "Retainer",
             isFlatAmount: true,
             isReferralCredit: false,
             quantity: null,
             unitPrice: null,
             amount: "500",
+            durationText: "Fixed",
           },
         ],
-        subtotal: "500",
-        total: "500",
+        allItemsFlat: false,
+        subtotal: "800",
+        total: "800",
       }),
     );
     const workbook = await loadWorkbook(buffer);
@@ -200,6 +214,51 @@ describe("buildInvoiceWorkbook", () => {
 
     const dashCount = allValues.filter((v) => v === "-").length;
     expect(dashCount).toBe(2);
+    expect(allValues.some((v) => v === "UNIT (HRS)")).toBe(true);
+    expect(allValues.some((v) => v === "RATE")).toBe(true);
+    expect(allValues.some((v) => v === "DURATION")).toBe(false);
+    expect(allValues.some((v) => v === "Retainer")).toBe(true);
+    expect(
+      allValues.some((v) => typeof v === "string" && v.includes("500")),
+    ).toBe(true);
+  });
+
+  it("renders a single Duration column (M48) instead of Unit(Hrs)/Rate when every item is Flat-amount", async () => {
+    const buffer = await buildInvoiceWorkbook(
+      fakeData({
+        items: [
+          {
+            id: "item_1",
+            description: "Retainer",
+            isFlatAmount: true,
+            isReferralCredit: false,
+            quantity: null,
+            unitPrice: null,
+            amount: "500",
+            durationText: "Fixed",
+          },
+        ],
+        allItemsFlat: true,
+        subtotal: "500",
+        total: "500",
+      }),
+    );
+    const workbook = await loadWorkbook(buffer);
+    const ws = workbook.getWorksheet("Invoice")!;
+
+    const allValues: (string | number)[] = [];
+    ws.eachRow((row) => {
+      row.eachCell((cell) => {
+        if (typeof cell.value === "string" || typeof cell.value === "number") {
+          allValues.push(cell.value);
+        }
+      });
+    });
+
+    expect(allValues.some((v) => v === "DURATION")).toBe(true);
+    expect(allValues.some((v) => v === "UNIT (HRS)")).toBe(false);
+    expect(allValues.some((v) => v === "RATE")).toBe(false);
+    expect(allValues.some((v) => v === "Fixed")).toBe(true);
     expect(allValues.some((v) => v === "Retainer")).toBe(true);
     expect(
       allValues.some((v) => typeof v === "string" && v.includes("500")),

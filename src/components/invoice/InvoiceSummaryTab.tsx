@@ -132,6 +132,10 @@ export function InvoiceSummaryTab({
                       {item.quantity} ×{" "}
                       {formatCurrency(item.unitPrice ?? "0", data.currency)}
                     </p>
+                  ) : item.durationText ? (
+                    <p className="text-[10px] text-muted-foreground">
+                      {item.durationText}
+                    </p>
                   ) : null}
                 </div>
                 <span className="shrink-0 font-mono text-[12px] font-semibold text-foreground">

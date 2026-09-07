@@ -24,6 +24,8 @@ export type InvoiceDocumentLineItem = {
   quantity: string | null;
   unitPrice: string | null;
   amount: string;
+  /** M48 — non-null only for a genuine Flat-amount item (never the referral-credit row). */
+  durationText: string | null;
 };
 
 export type InvoiceDocumentData = {
@@ -36,6 +38,8 @@ export type InvoiceDocumentData = {
   client: PartySnapshotData;
   paymentDetails: PaymentMethodField[];
   items: InvoiceDocumentLineItem[];
+  /** M48 — true when every item is Flat-amount (including the referral-credit row, if any); drives the single-Duration-column table layout shared by the preview, both PDF renderers, and Excel. */
+  allItemsFlat: boolean;
   itemsNote: string | null;
   subtotal: string;
   total: string;
@@ -72,6 +76,8 @@ export type InvoiceDocumentData = {
  * `items` is stable-sorted so any `isReferralCredit` row renders last
  * regardless of its stored `sortOrder` (M35) — the only re-sorting this
  * mapper ever does, everything else stays in the Prisma-supplied order.
+ * `allItemsFlat` (M48) is computed once here, not independently by each
+ * renderer, so the preview/PDF/Excel table layout can never diverge.
  */
 function assembleInvoiceDocumentData(
   invoice: InvoiceWithItems,
@@ -102,7 +108,9 @@ function assembleInvoiceDocumentData(
         quantity: item.quantity?.toString() ?? null,
         unitPrice: item.unitPrice?.toString() ?? null,
         amount: item.amount.toString(),
+        durationText: item.durationText,
       })),
+    allItemsFlat: invoice.items.every((item) => item.isFlatAmount),
     itemsNote: invoice.itemsNote,
     subtotal: invoice.subtotal.toString(),
     total: invoice.total.toString(),

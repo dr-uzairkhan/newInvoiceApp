@@ -132,10 +132,18 @@ export async function buildInvoiceWorkbook(
   row = Math.max(row, summaryHeaderRow + 4) + 2;
 
   // ── Item table ──
+  // M48 — when every item is Flat-amount, E:F merge into a single Duration
+  // column instead of separate Unit(Hrs)/Rate columns (mirrors
+  // InvoiceDocument.tsx's allItemsFlat table-layout switch).
   ws.mergeCells(`A${row}:D${row}`);
   ws.getCell(`A${row}`).value = "ITEM";
-  ws.getCell(`E${row}`).value = "UNIT (HRS)";
-  ws.getCell(`F${row}`).value = "RATE";
+  if (data.allItemsFlat) {
+    ws.mergeCells(`E${row}:F${row}`);
+    ws.getCell(`E${row}`).value = "DURATION";
+  } else {
+    ws.getCell(`E${row}`).value = "UNIT (HRS)";
+    ws.getCell(`F${row}`).value = "RATE";
+  }
   ws.getCell(`G${row}`).value = `AMOUNT (${data.currency})`;
   ["A", "E", "F", "G"].forEach((col) => {
     const cell = ws.getCell(`${col}${row}`);
@@ -148,10 +156,15 @@ export async function buildInvoiceWorkbook(
     ws.mergeCells(`A${row}:D${row}`);
     ws.getCell(`A${row}`).value = item.description;
     ws.getCell(`A${row}`).font = arial({});
-    ws.getCell(`E${row}`).value = item.isFlatAmount ? "-" : item.quantity;
-    ws.getCell(`F${row}`).value = item.isFlatAmount
-      ? "-"
-      : formatCurrency(item.unitPrice!, data.currency);
+    if (data.allItemsFlat) {
+      ws.mergeCells(`E${row}:F${row}`);
+      ws.getCell(`E${row}`).value = item.durationText ?? "-";
+    } else {
+      ws.getCell(`E${row}`).value = item.isFlatAmount ? "-" : item.quantity;
+      ws.getCell(`F${row}`).value = item.isFlatAmount
+        ? "-"
+        : formatCurrency(item.unitPrice!, data.currency);
+    }
     ws.getCell(`G${row}`).value = formatCurrency(item.amount, data.currency);
     ["A", "B", "C", "D", "E", "F", "G"].forEach((col) => {
       const cell = ws.getCell(`${col}${row}`);
