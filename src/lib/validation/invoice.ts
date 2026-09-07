@@ -36,6 +36,14 @@ export const invoiceItemBaseSchema = z.object({
   quantity: z.string().trim(),
   unitPrice: z.string().trim(),
   amount: z.string().trim(),
+  /**
+   * M48 — free-text label shown in the Duration column in place of
+   * Unit(Hrs)/Rate for a Flat-amount row (e.g. "Fixed", "50%", "2 weeks").
+   * Required only when `isFlatAmount` and not `isReferralCredit` (see
+   * `invoiceItemSchema` below); plain string (not `.optional()`) for the
+   * same `.partial()` composability reason as `quantity`/`unitPrice`/`amount`.
+   */
+  durationText: z.string().trim(),
 });
 
 export const invoiceItemSchema = invoiceItemBaseSchema.superRefine(
@@ -56,6 +64,13 @@ export const invoiceItemSchema = invoiceItemBaseSchema.superRefine(
           code: z.ZodIssueCode.custom,
           path: ["amount"],
           message: "Amount must be zero or greater",
+        });
+      }
+      if (!item.durationText) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["durationText"],
+          message: "Duration is required",
         });
       }
       return;

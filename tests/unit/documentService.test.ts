@@ -68,6 +68,7 @@ function fakeInvoice(
         quantity: new Prisma.Decimal("2"),
         unitPrice: new Prisma.Decimal("150"),
         amount: new Prisma.Decimal("300"),
+        durationText: null,
         sortOrder: 0,
       },
     ],
@@ -118,6 +119,7 @@ describe("documentService.assembleInvoiceDocumentData", () => {
             quantity: null,
             unitPrice: null,
             amount: new Prisma.Decimal("500"),
+            durationText: "Fixed",
             sortOrder: 0,
           },
         ],
@@ -131,7 +133,71 @@ describe("documentService.assembleInvoiceDocumentData", () => {
       quantity: null,
       unitPrice: null,
       amount: "500",
+      durationText: "Fixed",
     });
+  });
+
+  it("computes allItemsFlat: false when the invoice has any Hourly item (M48)", () => {
+    const data = documentService.assembleInvoiceDocumentData(fakeInvoice());
+    expect(data.allItemsFlat).toBe(false);
+  });
+
+  it("computes allItemsFlat: true when every item is Flat-amount (M48)", () => {
+    const data = documentService.assembleInvoiceDocumentData(
+      fakeInvoice({
+        items: [
+          {
+            id: "item_1",
+            invoiceId: "inv_1",
+            description: "Retainer",
+            isFlatAmount: true,
+            isReferralCredit: false,
+            quantity: null,
+            unitPrice: null,
+            amount: new Prisma.Decimal("500"),
+            durationText: "Fixed",
+            sortOrder: 0,
+          },
+        ],
+      }),
+    );
+    expect(data.allItemsFlat).toBe(true);
+  });
+
+  it("computes allItemsFlat: true for an all-Flat invoice that also has a referral-credit row (M48)", () => {
+    const data = documentService.assembleInvoiceDocumentData(
+      fakeInvoice({
+        items: [
+          {
+            id: "item_1",
+            invoiceId: "inv_1",
+            description: "Retainer",
+            isFlatAmount: true,
+            isReferralCredit: false,
+            quantity: null,
+            unitPrice: null,
+            amount: new Prisma.Decimal("500"),
+            durationText: "Fixed",
+            sortOrder: 0,
+          },
+          {
+            id: "item_credit",
+            invoiceId: "inv_1",
+            description: "Referral Credit (Thank you!)",
+            isFlatAmount: true,
+            isReferralCredit: true,
+            quantity: null,
+            unitPrice: null,
+            amount: new Prisma.Decimal("-50"),
+            durationText: null,
+            sortOrder: 1,
+          },
+        ],
+      }),
+    );
+    expect(data.allItemsFlat).toBe(true);
+    const creditItem = data.items.find((item) => item.isReferralCredit);
+    expect(creditItem?.durationText).toBeNull();
   });
 
   it("falls back to the project name when serviceDescription is unset (M23)", () => {
@@ -160,6 +226,7 @@ describe("documentService.assembleInvoiceDocumentData", () => {
             quantity: null,
             unitPrice: null,
             amount: new Prisma.Decimal("-150"),
+            durationText: null,
             sortOrder: 0,
           },
           {
@@ -171,6 +238,7 @@ describe("documentService.assembleInvoiceDocumentData", () => {
             quantity: new Prisma.Decimal("2"),
             unitPrice: new Prisma.Decimal("150"),
             amount: new Prisma.Decimal("300"),
+            durationText: null,
             sortOrder: 1,
           },
         ],

@@ -49,8 +49,10 @@ function fakeData(
         quantity: "2",
         unitPrice: "150",
         amount: "300",
+        durationText: null,
       },
     ],
+    allItemsFlat: false,
     itemsNote: null,
     subtotal: "300",
     total: "300",
@@ -76,7 +78,40 @@ describe("renderInvoicePdf", () => {
     expect(buffer.byteLength).toBeGreaterThan(0);
   });
 
-  it("renders a flat-amount item's dash cells without throwing", async () => {
+  it("renders a flat-amount item's dash cells without throwing when mixed with an Hourly item", async () => {
+    const buffer = await renderInvoicePdf(
+      fakeData({
+        items: [
+          {
+            id: "item_1",
+            description: "Consulting",
+            isFlatAmount: false,
+            isReferralCredit: false,
+            quantity: "2",
+            unitPrice: "150",
+            amount: "300",
+            durationText: null,
+          },
+          {
+            id: "item_2",
+            description: "Retainer",
+            isFlatAmount: true,
+            isReferralCredit: false,
+            quantity: null,
+            unitPrice: null,
+            amount: "500",
+            durationText: "Fixed",
+          },
+        ],
+        allItemsFlat: false,
+        subtotal: "800",
+        total: "800",
+      }),
+    );
+    expect(buffer.byteLength).toBeGreaterThan(0);
+  });
+
+  it("renders the single Duration column (M48) without throwing when every item is Flat-amount", async () => {
     const buffer = await renderInvoicePdf(
       fakeData({
         items: [
@@ -88,13 +123,16 @@ describe("renderInvoicePdf", () => {
             quantity: null,
             unitPrice: null,
             amount: "500",
+            durationText: "Fixed",
           },
         ],
+        allItemsFlat: true,
         subtotal: "500",
         total: "500",
       }),
     );
     expect(buffer.byteLength).toBeGreaterThan(0);
+    expect(Buffer.from(buffer.slice(0, 5)).toString("ascii")).toBe("%PDF-");
   });
 
   it("wraps a long description without throwing", async () => {
@@ -110,6 +148,7 @@ describe("renderInvoicePdf", () => {
             quantity: "1",
             unitPrice: "300",
             amount: "300",
+            durationText: null,
           },
         ],
         itemsNote:
@@ -136,6 +175,7 @@ describe("renderInvoicePdf", () => {
           quantity: "10",
           unitPrice: "150",
           amount: "1500",
+          durationText: null,
         })),
       }),
     );

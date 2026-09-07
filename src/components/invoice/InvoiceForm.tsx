@@ -220,6 +220,7 @@ export function InvoiceForm({
           quantity: "1",
           unitPrice: "0",
           amount: "",
+          durationText: "",
         },
       ],
       ...defaultValues,

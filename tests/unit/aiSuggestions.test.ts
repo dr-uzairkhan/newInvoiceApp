@@ -44,6 +44,7 @@ describe("aiSuggestions schemas", () => {
           quantity: "3",
           unitPrice: "",
           amount: "",
+          durationText: "",
         },
       ],
     });
@@ -57,13 +58,14 @@ describe("aiSuggestions schemas", () => {
           quantity: "3",
           unitPrice: "150",
           amount: "",
+          durationText: "",
         },
       ],
     });
     expect(complete.success).toBe(true);
   });
 
-  it("accepts a Flat-mode item suggestion (amount, no quantity/unitPrice)", () => {
+  it("accepts a Flat-mode item suggestion (amount, no quantity/unitPrice, non-empty durationText)", () => {
     const result = invoiceSuggestionSchema.safeParse({
       items: [
         {
@@ -72,10 +74,27 @@ describe("aiSuggestions schemas", () => {
           quantity: "",
           unitPrice: "",
           amount: "500",
+          durationText: "Fixed",
         },
       ],
     });
     expect(result.success).toBe(true);
+  });
+
+  it("rejects a Flat-mode item suggestion missing durationText (M48)", () => {
+    const result = invoiceSuggestionSchema.safeParse({
+      items: [
+        {
+          description: "Retainer",
+          isFlatAmount: true,
+          quantity: "",
+          unitPrice: "",
+          amount: "500",
+          durationText: "",
+        },
+      ],
+    });
+    expect(result.success).toBe(false);
   });
 });
 
@@ -115,6 +134,7 @@ describe("invoiceAssistResponseSchema", () => {
             quantity: "3",
             unitPrice: "",
             amount: "",
+            durationText: "",
           },
         ],
       },

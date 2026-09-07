@@ -56,6 +56,44 @@ const COL_QTY_RIGHT = MARGIN + COL_DESCRIPTION_W + COL_QTY_W;
 const COL_RATE_RIGHT = COL_QTY_RIGHT + COL_RATE_W;
 const COL_AMOUNT_RIGHT = COL_RATE_RIGHT + COL_AMOUNT_W;
 
+// M48 — single-Duration-column layout used instead of the above when every
+// item on the invoice is Flat-amount (mirrors InvoiceDocument.module.css's
+// .colDescriptionWide/.colDuration: Description 62%, Duration 20%, Amount 18%).
+const COL_FLAT_DESCRIPTION_W = CONTENT_WIDTH * 0.62;
+const COL_FLAT_DURATION_W = CONTENT_WIDTH * 0.2;
+const COL_FLAT_AMOUNT_W = CONTENT_WIDTH * 0.18;
+const COL_FLAT_DURATION_RIGHT =
+  MARGIN + COL_FLAT_DESCRIPTION_W + COL_FLAT_DURATION_W;
+const COL_FLAT_AMOUNT_RIGHT = COL_FLAT_DURATION_RIGHT + COL_FLAT_AMOUNT_W;
+
+type ColumnLayout = {
+  descriptionW: number;
+  headerCells: { label: string; rightX: number }[];
+};
+
+function buildColumnLayout(
+  allItemsFlat: boolean,
+  currency: string,
+): ColumnLayout {
+  if (allItemsFlat) {
+    return {
+      descriptionW: COL_FLAT_DESCRIPTION_W,
+      headerCells: [
+        { label: "DURATION", rightX: COL_FLAT_DURATION_RIGHT },
+        { label: `AMOUNT (${currency})`, rightX: COL_FLAT_AMOUNT_RIGHT },
+      ],
+    };
+  }
+  return {
+    descriptionW: COL_DESCRIPTION_W,
+    headerCells: [
+      { label: "UNIT (HRS)", rightX: COL_QTY_RIGHT },
+      { label: "RATE", rightX: COL_RATE_RIGHT },
+      { label: `AMOUNT (${currency})`, rightX: COL_AMOUNT_RIGHT },
+    ],
+  };
+}
+
 // ── Summary grid geometry (§8 — 1.1fr / 0.65fr / 0.75fr, 10mm gap) ──
 const SUMMARY_GAP = 10 * MM;
 const SUMMARY_FR_TOTAL = 1.1 + 0.65 + 0.75;
@@ -193,20 +231,16 @@ function drawRule(
   });
 }
 
-function drawTableHeader(writer: Writer, currency: string, fonts: Fonts): void {
+function drawTableHeader(
+  writer: Writer,
+  layout: ColumnLayout,
+  fonts: Fonts,
+): void {
   const size = 8.5;
   drawLine(writer, "ITEM", { x: COL_DESCRIPTION_X, size, font: fonts.bold });
-  drawLine(writer, "UNIT (HRS)", {
-    rightX: COL_QTY_RIGHT,
-    size,
-    font: fonts.bold,
-  });
-  drawLine(writer, "RATE", { rightX: COL_RATE_RIGHT, size, font: fonts.bold });
-  drawLine(writer, `AMOUNT (${currency})`, {
-    rightX: COL_AMOUNT_RIGHT,
-    size,
-    font: fonts.bold,
-  });
+  for (const cell of layout.headerCells) {
+    drawLine(writer, cell.label, { rightX: cell.rightX, size, font: fonts.bold });
+  }
   writer.y += size * 1.2 + SPACE_2;
 }
 
@@ -331,19 +365,20 @@ export async function renderInvoicePdf(
     summaryStartY + Math.max(col1Y, col2Y, col3Y) - summaryStartY + SPACE_5;
 
   // ── Item table ──
-  drawTableHeader(writer, data.currency, fonts);
+  const columnLayout = buildColumnLayout(data.allItemsFlat, data.currency);
+  drawTableHeader(writer, columnLayout, fonts);
 
   for (const item of data.items) {
     const descLines = wrapText(
       item.description,
       fonts.regular,
       9,
-      COL_DESCRIPTION_W,
+      columnLayout.descriptionW,
     );
     const rowHeight = descLines.length * (9 * 1.3) + 2 * SPACE_1;
 
     if (ensureSpace(writer, rowHeight)) {
-      drawTableHeader(writer, data.currency, fonts);
+      drawTableHeader(writer, columnLayout, fonts);
     }
 
     const rowTopY = writer.y + SPACE_1;
@@ -356,21 +391,36 @@ export async function renderInvoicePdf(
     });
 
     writer.y = rowTopY;
-    drawLine(writer, item.isFlatAmount ? "-" : (item.quantity ?? ""), {
-      rightX: COL_QTY_RIGHT,
-      size: 9,
-      font: fonts.regular,
-    });
-    drawLine(
-      writer,
-      item.isFlatAmount ? "-" : formatCurrency(item.unitPrice!, data.currency),
-      { rightX: COL_RATE_RIGHT, size: 9, font: fonts.regular },
-    );
-    drawLine(writer, formatCurrency(item.amount, data.currency), {
-      rightX: COL_AMOUNT_RIGHT,
-      size: 9,
-      font: fonts.regular,
-    });
+    if (data.allItemsFlat) {
+      drawLine(writer, item.durationText ?? "-", {
+        rightX: COL_FLAT_DURATION_RIGHT,
+        size: 9,
+        font: fonts.regular,
+      });
+      drawLine(writer, formatCurrency(item.amount, data.currency), {
+        rightX: COL_FLAT_AMOUNT_RIGHT,
+        size: 9,
+        font: fonts.regular,
+      });
+    } else {
+      drawLine(writer, item.isFlatAmount ? "-" : (item.quantity ?? ""), {
+        rightX: COL_QTY_RIGHT,
+        size: 9,
+        font: fonts.regular,
+      });
+      drawLine(
+        writer,
+        item.isFlatAmount
+          ? "-"
+          : formatCurrency(item.unitPrice!, data.currency),
+        { rightX: COL_RATE_RIGHT, size: 9, font: fonts.regular },
+      );
+      drawLine(writer, formatCurrency(item.amount, data.currency), {
+        rightX: COL_AMOUNT_RIGHT,
+        size: 9,
+        font: fonts.regular,
+      });
+    }
 
     writer.y = rowTopY + descLines.length * (9 * 1.3) + SPACE_1;
   }

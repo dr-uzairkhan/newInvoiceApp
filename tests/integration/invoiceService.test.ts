@@ -106,19 +106,21 @@ function baseInvoiceInput(overrides: Partial<InvoiceInput> = {}): InvoiceInput {
         unitPrice: "150.00",
         isFlatAmount: false,
         amount: "",
+        durationText: "",
       },
     ],
     ...overrides,
   };
 }
 
-function flatItem(description: string, amount: string) {
+function flatItem(description: string, amount: string, durationText = "Fixed") {
   return {
     description,
     isFlatAmount: true as const,
     quantity: "",
     unitPrice: "",
     amount,
+    durationText,
   };
 }
 
@@ -129,6 +131,7 @@ function hourlyItem(description: string, quantity: string, unitPrice: string) {
     quantity,
     unitPrice,
     amount: "",
+    durationText: "",
   };
 }
 
@@ -141,6 +144,7 @@ function referralCreditItem(description: string, amount: string) {
     quantity: "",
     unitPrice: "",
     amount,
+    durationText: "",
   };
 }
 
@@ -180,6 +184,7 @@ describe("invoiceService.createDraft", () => {
             unitPrice: "100.00",
             isFlatAmount: false,
             amount: "",
+            durationText: "",
           },
           {
             description: "Development",
@@ -187,6 +192,7 @@ describe("invoiceService.createDraft", () => {
             unitPrice: "50.50",
             isFlatAmount: false,
             amount: "",
+            durationText: "",
           },
         ],
       }),
@@ -212,6 +218,7 @@ describe("invoiceService.createDraft", () => {
             unitPrice: "10",
             isFlatAmount: false,
             amount: "",
+            durationText: "",
           },
         ],
       }),
@@ -568,6 +575,7 @@ describe("invoiceService.updateDraft", () => {
             unitPrice: "100",
             isFlatAmount: false,
             amount: "",
+            durationText: "",
           },
         ],
       }),
@@ -585,6 +593,7 @@ describe("invoiceService.updateDraft", () => {
             unitPrice: "100",
             isFlatAmount: false,
             amount: "",
+            durationText: "",
           },
           {
             description: "Extra",
@@ -592,6 +601,7 @@ describe("invoiceService.updateDraft", () => {
             unitPrice: "25",
             isFlatAmount: false,
             amount: "",
+            durationText: "",
           },
         ],
       }),
@@ -1085,6 +1095,7 @@ describe("invoiceService.transitionStatus", () => {
             unitPrice: "100",
             isFlatAmount: false,
             amount: "",
+            durationText: "",
           },
         ],
       }),
@@ -1101,6 +1112,7 @@ describe("invoiceService.transitionStatus", () => {
             unitPrice: "100",
             isFlatAmount: false,
             amount: "",
+            durationText: "",
           },
         ],
       }),
@@ -1358,6 +1370,7 @@ describe("invoiceService.getAutofillDataForProject", () => {
         quantity: "3",
         unitPrice: "150",
         amount: "",
+        durationText: "",
       },
       {
         description: "Retainer",
@@ -1366,6 +1379,7 @@ describe("invoiceService.getAutofillDataForProject", () => {
         quantity: "",
         unitPrice: "",
         amount: "500",
+        durationText: "Fixed",
       },
     ]);
   });

@@ -14,6 +14,7 @@ function baseInput(overrides: Record<string, unknown> = {}) {
         quantity: "1",
         unitPrice: "100",
         amount: "",
+        durationText: "",
       },
     ],
     ...overrides,
@@ -40,6 +41,7 @@ describe("invoiceSchema", () => {
             quantity: "0",
             unitPrice: "10",
             amount: "",
+            durationText: "",
           },
         ],
       }),
@@ -57,6 +59,7 @@ describe("invoiceSchema", () => {
             quantity: "1",
             unitPrice: "-5",
             amount: "",
+            durationText: "",
           },
         ],
       }),
@@ -74,6 +77,7 @@ describe("invoiceSchema", () => {
             quantity: "1",
             unitPrice: "0",
             amount: "",
+            durationText: "",
           },
         ],
       }),
@@ -91,6 +95,7 @@ describe("invoiceSchema", () => {
             quantity: "",
             unitPrice: "",
             amount: "1125",
+            durationText: "Fixed",
           },
         ],
       }),
@@ -108,11 +113,48 @@ describe("invoiceSchema", () => {
             quantity: "",
             unitPrice: "",
             amount: "",
+            durationText: "Fixed",
           },
         ],
       }),
     );
     expect(result.success).toBe(false);
+  });
+
+  it("rejects a Flat-mode item missing durationText (M48)", () => {
+    const result = invoiceSchema.safeParse(
+      baseInput({
+        items: [
+          {
+            description: "Retainer",
+            isFlatAmount: true,
+            quantity: "",
+            unitPrice: "",
+            amount: "1125",
+            durationText: "",
+          },
+        ],
+      }),
+    );
+    expect(result.success).toBe(false);
+  });
+
+  it("does not require durationText for an Hourly-mode item (M48)", () => {
+    const result = invoiceSchema.safeParse(
+      baseInput({
+        items: [
+          {
+            description: "Hourly work",
+            isFlatAmount: false,
+            quantity: "2",
+            unitPrice: "100",
+            amount: "",
+            durationText: "",
+          },
+        ],
+      }),
+    );
+    expect(result.success).toBe(true);
   });
 
   it("rejects an Hourly-mode item missing quantity or unitPrice", () => {
@@ -125,6 +167,7 @@ describe("invoiceSchema", () => {
             quantity: "",
             unitPrice: "100",
             amount: "",
+            durationText: "",
           },
         ],
       }),
@@ -140,6 +183,7 @@ describe("invoiceSchema", () => {
             quantity: "1",
             unitPrice: "",
             amount: "",
+            durationText: "",
           },
         ],
       }),
@@ -157,6 +201,7 @@ describe("invoiceSchema", () => {
             quantity: "2",
             unitPrice: "100",
             amount: "",
+            durationText: "",
           },
           {
             description: "Retainer",
@@ -164,6 +209,7 @@ describe("invoiceSchema", () => {
             quantity: "",
             unitPrice: "",
             amount: "500",
+            durationText: "Fixed",
           },
         ],
       }),
@@ -198,6 +244,7 @@ describe("invoiceSchema", () => {
             quantity: "1",
             unitPrice: "100",
             amount: "",
+            durationText: "",
           },
           {
             description: "Referral Credit (Thank you!)",
@@ -206,6 +253,7 @@ describe("invoiceSchema", () => {
             quantity: "",
             unitPrice: "",
             amount: "150",
+            durationText: "",
           },
         ],
       }),
@@ -224,6 +272,7 @@ describe("invoiceSchema", () => {
             quantity: "",
             unitPrice: "",
             amount: "0",
+            durationText: "",
           },
         ],
       }),
@@ -242,6 +291,7 @@ describe("invoiceSchema", () => {
             quantity: "",
             unitPrice: "",
             amount: "-150",
+            durationText: "",
           },
         ],
       }),
@@ -260,6 +310,7 @@ describe("invoiceSchema", () => {
             quantity: "",
             unitPrice: "",
             amount: "100",
+            durationText: "",
           },
           {
             description: "Another Referral Credit",
@@ -268,6 +319,7 @@ describe("invoiceSchema", () => {
             quantity: "",
             unitPrice: "",
             amount: "50",
+            durationText: "",
           },
         ],
       }),

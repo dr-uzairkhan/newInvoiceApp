@@ -99,6 +99,7 @@ async function main() {
         unitPrice: "150.00",
         isFlatAmount: false,
         amount: "",
+        durationText: "",
       },
       {
         description: "Project setup (flat fee)",
@@ -106,6 +107,7 @@ async function main() {
         unitPrice: "",
         isFlatAmount: true,
         amount: "500.00",
+        durationText: "Fixed",
       },
     ],
   });

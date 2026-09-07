@@ -99,6 +99,7 @@ export function LineItemsEditor({
                   quantity: "",
                   unitPrice: "",
                   amount: "",
+                  durationText: "",
                 })
               }
             >
@@ -118,6 +119,7 @@ export function LineItemsEditor({
                 quantity: "1",
                 unitPrice: "0",
                 amount: "",
+                durationText: "",
               })
             }
           >
@@ -207,18 +209,32 @@ export function LineItemsEditor({
                 </p>
               </>
             ) : watchedItems?.[index]?.isFlatAmount ? (
-              <FormField
-                label={`Amount (${currency})`}
-                htmlFor={`items.${index}.amount`}
-                error={errors.items?.[index]?.amount?.message}
-                className="mb-0"
-              >
-                <Input
-                  id={`items.${index}.amount`}
-                  inputMode="decimal"
-                  {...register(`items.${index}.amount` as const)}
-                />
-              </FormField>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <FormField
+                  label="Duration"
+                  htmlFor={`items.${index}.durationText`}
+                  error={errors.items?.[index]?.durationText?.message}
+                  className="mb-0"
+                >
+                  <Input
+                    id={`items.${index}.durationText`}
+                    placeholder="e.g. Fixed, 50%, 2 weeks"
+                    {...register(`items.${index}.durationText` as const)}
+                  />
+                </FormField>
+                <FormField
+                  label={`Amount (${currency})`}
+                  htmlFor={`items.${index}.amount`}
+                  error={errors.items?.[index]?.amount?.message}
+                  className="mb-0"
+                >
+                  <Input
+                    id={`items.${index}.amount`}
+                    inputMode="decimal"
+                    {...register(`items.${index}.amount` as const)}
+                  />
+                </FormField>
+              </div>
             ) : (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <FormField

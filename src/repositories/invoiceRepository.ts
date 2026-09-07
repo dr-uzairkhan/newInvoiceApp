@@ -19,6 +19,7 @@ export type InvoiceItemWriteInput = {
   quantity: Prisma.Decimal | null;
   unitPrice: Prisma.Decimal | null;
   amount: Prisma.Decimal;
+  durationText: string | null;
   sortOrder: number;
 };
 
@@ -348,6 +349,7 @@ function itemsCreateInput(items: InvoiceItemWriteInput[]) {
     quantity: item.quantity,
     unitPrice: item.unitPrice,
     amount: item.amount,
+    durationText: item.durationText,
     sortOrder: item.sortOrder,
   }));
 }

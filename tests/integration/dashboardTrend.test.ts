@@ -105,6 +105,7 @@ function baseInvoiceInput(overrides: Partial<InvoiceInput> = {}): InvoiceInput {
         unitPrice: "150.00",
         isFlatAmount: false,
         amount: "",
+        durationText: "",
       },
     ],
     ...overrides,

@@ -197,6 +197,12 @@
 .colAmount {
   width: 18%;
 }
+.colDescriptionWide {
+  width: 62%;
+}
+.colDuration {
+  width: 20%;
+}
 
 .table th {
   padding: 0 0 var(--space-2);

@@ -91,38 +91,74 @@ export function InvoiceDocument({
         </div>
 
         <table className={styles.table}>
-          <colgroup>
-            <col className={styles.colDescription} />
-            <col className={styles.colQty} />
-            <col className={styles.colRate} />
-            <col className={styles.colAmount} />
-          </colgroup>
-          <thead>
-            <tr>
-              <th>Item</th>
-              <th className={styles.numberCell}>Unit (hrs)</th>
-              <th className={styles.numberCell}>Rate</th>
-              <th className={styles.numberCell}>Amount ({data.currency})</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.items.map((item) => (
-              <tr key={item.id}>
-                <td>{item.description}</td>
-                <td className={styles.numberCell}>
-                  {item.isFlatAmount ? "-" : item.quantity}
-                </td>
-                <td className={styles.numberCell}>
-                  {item.isFlatAmount
-                    ? "-"
-                    : formatCurrency(item.unitPrice!, data.currency)}
-                </td>
-                <td className={styles.numberCell}>
-                  {formatCurrency(item.amount, data.currency)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
+          {data.allItemsFlat ? (
+            <>
+              <colgroup>
+                <col className={styles.colDescriptionWide} />
+                <col className={styles.colDuration} />
+                <col className={styles.colAmount} />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th className={styles.numberCell}>Duration</th>
+                  <th className={styles.numberCell}>
+                    Amount ({data.currency})
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.items.map((item) => (
+                  <tr key={item.id}>
+                    <td>{item.description}</td>
+                    <td className={styles.numberCell}>
+                      {item.durationText ?? "-"}
+                    </td>
+                    <td className={styles.numberCell}>
+                      {formatCurrency(item.amount, data.currency)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </>
+          ) : (
+            <>
+              <colgroup>
+                <col className={styles.colDescription} />
+                <col className={styles.colQty} />
+                <col className={styles.colRate} />
+                <col className={styles.colAmount} />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th className={styles.numberCell}>Unit (hrs)</th>
+                  <th className={styles.numberCell}>Rate</th>
+                  <th className={styles.numberCell}>
+                    Amount ({data.currency})
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.items.map((item) => (
+                  <tr key={item.id}>
+                    <td>{item.description}</td>
+                    <td className={styles.numberCell}>
+                      {item.isFlatAmount ? "-" : item.quantity}
+                    </td>
+                    <td className={styles.numberCell}>
+                      {item.isFlatAmount
+                        ? "-"
+                        : formatCurrency(item.unitPrice!, data.currency)}
+                    </td>
+                    <td className={styles.numberCell}>
+                      {formatCurrency(item.amount, data.currency)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </>
+          )}
         </table>
 
         {data.itemsNote ? (

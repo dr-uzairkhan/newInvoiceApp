@@ -166,6 +166,7 @@ function computeItems(items: InvoiceInput["items"]): InvoiceItemWriteInput[] {
         quantity: null,
         unitPrice: null,
         amount: new Prisma.Decimal(item.amount).negated(),
+        durationText: null,
         sortOrder: index,
       };
     }
@@ -177,6 +178,7 @@ function computeItems(items: InvoiceInput["items"]): InvoiceItemWriteInput[] {
         quantity: null,
         unitPrice: null,
         amount: new Prisma.Decimal(item.amount),
+        durationText: item.durationText.trim(),
         sortOrder: index,
       };
     }
@@ -189,6 +191,7 @@ function computeItems(items: InvoiceInput["items"]): InvoiceItemWriteInput[] {
       quantity,
       unitPrice,
       amount: quantity.times(unitPrice),
+      durationText: null,
       sortOrder: index,
     };
   });
@@ -479,6 +482,7 @@ export type InvoiceAutofillData = {
     quantity: string;
     unitPrice: string;
     amount: string;
+    durationText: string;
   }[];
   itemsNote: string;
   bottomNote: string;
@@ -514,6 +518,7 @@ async function getAutofillDataForProject(
         : item.isFlatAmount
           ? item.amount.toString()
           : "",
+      durationText: item.durationText ?? "",
     })),
     itemsNote: invoice.itemsNote ?? "",
     bottomNote: invoice.bottomNote ?? "",

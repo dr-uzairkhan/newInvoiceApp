@@ -214,6 +214,7 @@ export default async function InvoiceDetailPage({
               : item.isFlatAmount
                 ? item.amount.toString()
                 : "",
+            durationText: item.durationText ?? "",
           })),
         }}
       />
