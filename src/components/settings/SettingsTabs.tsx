@@ -20,7 +20,7 @@ export function SettingsTabs({
         options={TABS}
         active={active}
         hrefFor={(value) =>
-          value === "providers" ? "/settings" : `/settings/`
+          value === "providers" ? "/settings" : `/settings/${value}`
         }
       />
     </div>
