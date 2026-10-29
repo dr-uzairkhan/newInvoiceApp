@@ -3,11 +3,12 @@ import { FilterChips } from "@/components/shared/FilterChips";
 const TABS = [
   { value: "providers", label: "AI Providers" },
   { value: "users", label: "Users" },
+  { value: "tokens", label: "API Tokens" },
 ] as const;
 
-/** M28 — real route tabs (/settings vs /settings/users), not a `?`-param
- * variant of one page like FilterChips' other users — `hrefFor` just points
- * at two different pages instead. */
+/** M28 — real route tabs (/settings, /settings/users, /settings/tokens), not a
+ * `?`-param variant of one page like FilterChips' other users — `hrefFor` just
+ * points at different pages instead. */
 export function SettingsTabs({
   active,
 }: {
@@ -19,7 +20,7 @@ export function SettingsTabs({
         options={TABS}
         active={active}
         hrefFor={(value) =>
-          value === "providers" ? "/settings" : "/settings/users"
+          value === "providers" ? "/settings" : `/settings/`
         }
       />
     </div>

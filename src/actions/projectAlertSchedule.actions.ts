@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { projectAlertScheduleService } from "@/services/projectAlertScheduleService";
 import { projectAlertScheduleSchema } from "@/lib/validation/projectAlertSchedule";
 import { requireRole, requireSession } from "@/lib/authz";
+import { ROLES } from "@/lib/permissions";
 
 export type ActionResult<T> =
   | { success: true; data: T }
@@ -25,7 +26,7 @@ export async function createProjectAlertScheduleAction(
   projectId: string,
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
-  const check = await requireRole(["ADMIN", "STANDARD"]);
+  const check = await requireRole(ROLES.writeAlertSchedules);
   if (!check.ok) return { success: false, error: check.error };
 
   const parsed = projectAlertScheduleSchema.safeParse(input);
@@ -50,7 +51,7 @@ export async function updateProjectAlertScheduleAction(
   projectId: string,
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
-  const check = await requireRole(["ADMIN", "STANDARD"]);
+  const check = await requireRole(ROLES.writeAlertSchedules);
   if (!check.ok) return { success: false, error: check.error };
 
   const parsed = projectAlertScheduleSchema.safeParse(input);
@@ -71,7 +72,7 @@ export async function deleteProjectAlertScheduleAction(
   id: string,
   projectId: string,
 ): Promise<ActionResult<null>> {
-  const check = await requireRole(["ADMIN", "STANDARD"]);
+  const check = await requireRole(ROLES.writeAlertSchedules);
   if (!check.ok) return { success: false, error: check.error };
 
   await projectAlertScheduleService.delete(id);

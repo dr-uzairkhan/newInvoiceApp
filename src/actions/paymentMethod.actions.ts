@@ -7,6 +7,7 @@ import {
 } from "@/services/paymentMethodService";
 import { paymentMethodSchema } from "@/lib/validation/paymentMethod";
 import { requireRole } from "@/lib/authz";
+import { ROLES } from "@/lib/permissions";
 
 export type ActionResult<T> =
   | { success: true; data: T }
@@ -16,7 +17,7 @@ export async function createPaymentMethodAction(
   partyId: string,
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
-  const check = await requireRole(["ADMIN", "STANDARD"]);
+  const check = await requireRole(ROLES.writePaymentMethods);
   if (!check.ok) return { success: false, error: check.error };
 
   const parsed = paymentMethodSchema.safeParse(input);
@@ -38,7 +39,7 @@ export async function updatePaymentMethodAction(
   partyId: string,
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
-  const check = await requireRole(["ADMIN", "STANDARD"]);
+  const check = await requireRole(ROLES.writePaymentMethods);
   if (!check.ok) return { success: false, error: check.error };
 
   const parsed = paymentMethodSchema.safeParse(input);
@@ -63,7 +64,7 @@ export async function deletePaymentMethodAction(
   id: string,
   partyId: string,
 ): Promise<ActionResult<null>> {
-  const check = await requireRole(["ADMIN", "STANDARD"]);
+  const check = await requireRole(ROLES.writePaymentMethods);
   if (!check.ok) return { success: false, error: check.error };
 
   try {

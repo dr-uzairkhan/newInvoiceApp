@@ -27,6 +27,7 @@
     "@auth/prisma-adapter": "^2.11.3",
     "@base-ui/react": "^1.6.0",
     "@hookform/resolvers": "^5.4.0",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@prisma/client": "^6.19.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

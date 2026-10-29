@@ -30,7 +30,9 @@ export async function requireSession(): Promise<GuardResult> {
 }
 
 /** Same as `requireSession`, plus a role check. */
-export async function requireRole(allowed: Role[]): Promise<GuardResult> {
+export async function requireRole(
+  allowed: readonly Role[],
+): Promise<GuardResult> {
   const session = await auth();
   if (!session) {
     return { ok: false, error: "You must be signed in to do that." };

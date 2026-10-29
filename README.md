@@ -30,6 +30,7 @@ _Screenshots show the bundled demo seed data._
 - **Currency** — a project denominates invoices entirely in one currency (`SINGLE` mode: USD/AUD/GBP/NZD/AED/PKR/SAR) or works USD-primary with a manually-entered converted total (`DUAL` mode). Dashboards never blend currencies.
 - **Dashboard** — a weekly action planner: one highest-priority action per project (overdue, invoice to prepare, draft to send, upcoming billing, setup gap), grouped by urgency, with same-category invoices folded into one line.
 - **Authentication** — Google OAuth via Auth.js, no self-registration; database-backed sessions so revoking access takes effect immediately. Three roles (`ADMIN`/`STANDARD`/`RESTRICTED`), managed at `/settings/users`.
+- **MCP server** — `/api/mcp` lets Claude Code (or any Streamable-HTTP MCP client with a bearer token) operate the app: parties, payment methods, projects, reminders, invoices, comments and PDFs, through the same rules as the UI. Scoped personal tokens, per-call audit log. See `Docs/mcp_server.md`.
 
 ## Tech stack
 

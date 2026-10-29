@@ -323,6 +323,8 @@ model User {
   sessions Session[]
   createdInvoices Invoice[]
   invoiceComments InvoiceComment[]
+  apiTokens ApiToken[]
+  mcpAuditEntries McpAuditLog[]
   createdProjects Project[]
 }
 
@@ -408,4 +410,58 @@ model InvoiceComment {
 
   @@index([invoiceId, createdAt])
   @@index([authorUserId])
+}
+
+/// Scope of a personal API token (Docs/implementation_decisions.md §32):
+/// READ lists/gets only; WRITE adds create/update/transition tools;
+/// WRITE_DESTRUCTIVE additionally allows delete and void (which also need an
+/// explicit confirm flag per call).
+enum ApiTokenScope {
+  READ
+  WRITE
+  WRITE_DESTRUCTIVE
+}
+
+/// Personal API token for the MCP endpoint (`/api/mcp`). The plaintext is
+/// shown once at creation and only its SHA-256 hash is stored; `tokenPrefix`
+/// (the first characters) is kept for display. A token acts as its owning
+/// user — role checks use the user's role at call time, never a role frozen
+/// into the token. Revocation is a timestamp, so the audit log keeps its
+/// reference.
+model ApiToken {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name String
+  tokenHash String @unique
+  tokenPrefix String
+  scope ApiTokenScope
+  expiresAt DateTime?
+  lastUsedAt DateTime?
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+
+  auditEntries McpAuditLog[]
+
+  @@index([userId])
+}
+
+/// One row per MCP tool call: who (token + user), what (tool, target),
+/// outcome ("ok" | "denied" | "error") and a short detail. Token/user are
+/// nullable with SetNull so the trail outlives both.
+model McpAuditLog {
+  id String @id @default(cuid())
+  tokenId String?
+  token ApiToken? @relation(fields: [tokenId], references: [id], onDelete: SetNull)
+  userId String?
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  tool String
+  targetType String?
+  targetId String?
+  outcome String
+  detail String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([targetType, targetId])
 }

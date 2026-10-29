@@ -8,6 +8,7 @@ import {
 } from "@/services/projectService";
 import { projectSchema } from "@/lib/validation/project";
 import { requireRole } from "@/lib/authz";
+import { ROLES } from "@/lib/permissions";
 
 export type ActionResult<T> =
   | { success: true; data: T }
@@ -16,7 +17,7 @@ export type ActionResult<T> =
 export async function createProjectAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
-  const check = await requireRole(["ADMIN", "STANDARD"]);
+  const check = await requireRole(ROLES.writeProjects);
   if (!check.ok) return { success: false, error: check.error };
 
   const parsed = projectSchema.safeParse(input);
@@ -47,7 +48,7 @@ export async function updateProjectAction(
   id: string,
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
-  const check = await requireRole(["ADMIN", "STANDARD"]);
+  const check = await requireRole(ROLES.writeProjects);
   if (!check.ok) return { success: false, error: check.error };
 
   const parsed = projectSchema.safeParse(input);
@@ -76,7 +77,7 @@ export async function moveProjectAction(
   id: string,
   direction: "up" | "down",
 ): Promise<ActionResult<null>> {
-  const check = await requireRole(["ADMIN", "STANDARD"]);
+  const check = await requireRole(ROLES.writeProjects);
   if (!check.ok) return { success: false, error: check.error };
 
   await projectService.move(id, direction);
@@ -88,7 +89,7 @@ export async function moveProjectAction(
 export async function deleteProjectAction(
   id: string,
 ): Promise<ActionResult<null>> {
-  const check = await requireRole(["ADMIN", "STANDARD"]);
+  const check = await requireRole(ROLES.writeProjects);
   if (!check.ok) return { success: false, error: check.error };
 
   try {

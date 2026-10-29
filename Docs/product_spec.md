@@ -145,7 +145,38 @@ An operational note recorded against an invoice at any point in its life; never 
 
 Deletion is limited to the comment's author or an `ADMIN`.
 
-### 1.8 Entity: User
+### 1.8 Entity: ApiToken
+
+A personal API token for the MCP endpoint (`Docs/implementation_decisions.md` §32, `Docs/mcp_server.md`). Acts as its owning user with that user's current role.
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `Id` | UUID | Primary key. |
+| `UserId` | FK → User | Owner; deleted with the user. |
+| `Name` | Text | Admin-chosen label (e.g. the machine it lives on). |
+| `TokenHash` | Text, Unique | SHA-256 of the plaintext; the plaintext is shown once and never stored. |
+| `TokenPrefix` | Text | First characters of the plaintext, for display. |
+| `Scope` | Enum | `READ`, `WRITE`, `WRITE_DESTRUCTIVE` — nested. |
+| `ExpiresAt` | Timestamp, Optional | Null means no expiry. |
+| `LastUsedAt` | Timestamp, Optional | Stamped on use (throttled). |
+| `RevokedAt` | Timestamp, Optional | Set on revocation; the row stays for the audit trail. |
+
+### 1.9 Entity: McpAuditLog
+
+One row per MCP tool call — allowed, denied or failed.
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `Id` | UUID | Primary key. |
+| `TokenId` | FK → ApiToken, Optional | Null if the token was later deleted with its user. |
+| `UserId` | FK → User, Optional | Who the call acted as. |
+| `Tool` | Text | Tool name, e.g. `mark_invoice_sent`. |
+| `TargetType` / `TargetId` | Text, Optional | What the call addressed, e.g. `invoice` + id. |
+| `Outcome` | Text | `ok`, `denied` (scope/role) or `error` (rule violation or failure). |
+| `Detail` | Text, Optional | The error message, when any. |
+| `CreatedAt` | Timestamp | |
+
+### 1.10 Entity: User
 
 Google-OAuth-only, no self-registration — see `Docs/implementation_decisions.md` §8.
 
