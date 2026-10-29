@@ -4,39 +4,12 @@ import {
   buildLastCoveredPeriodByProjectId,
   buildLastInvoiceByProjectId,
   buildProjectBillingRows,
-  buildReceivablesAgeing,
-  hasOpenExposure,
-  isDueWithin14Days,
-  resolveHealthCategory,
 } from "@/lib/projectBillingStatus";
 import type { InvoiceListItem } from "@/repositories/invoiceRepository";
 import type { ProjectWithRelations } from "@/repositories/projectRepository";
 import type { AlertScheduleWithProject } from "@/repositories/projectAlertScheduleRepository";
-import type { ProjectBillingRow } from "@/lib/projectBillingStatus";
 
 const NOW = new Date("2026-01-20T00:00:00.000Z");
-
-function billingRow(overrides: Partial<ProjectBillingRow>): ProjectBillingRow {
-  return {
-    projectId: "project-1",
-    projectName: "Test Project",
-    clientName: "Test Client",
-    billingLabel: "Milestone",
-    lastInvoiceDate: null,
-    lastInvoiceTotal: null,
-    lastInvoiceCurrency: null,
-    lastCoveredPeriod: null,
-    nextInvoiceDate: null,
-    exposureTotal: "0",
-    exposureCurrency: "USD",
-    exposureCount: 0,
-    overdueCount: 0,
-    draftCount: 0,
-    statusLabel: "On track",
-    statusTone: "positive",
-    ...overrides,
-  };
-}
 
 function invoice(overrides: Partial<InvoiceListItem>): InvoiceListItem {
   return {
@@ -539,91 +512,5 @@ describe("buildProjectBillingRows", () => {
     });
 
     expect(rows[0].statusTone).toBe("setupIncomplete");
-  });
-});
-
-describe("isDueWithin14Days (M41)", () => {
-  it("is true for a nextInvoiceDate within the next 14 days", () => {
-    const row = billingRow({ nextInvoiceDate: new Date("2026-01-25") });
-    expect(isDueWithin14Days(row, NOW)).toBe(true);
-  });
-
-  it("is true for today itself", () => {
-    const row = billingRow({ nextInvoiceDate: NOW });
-    expect(isDueWithin14Days(row, NOW)).toBe(true);
-  });
-
-  it("is false for a date more than 14 days out", () => {
-    const row = billingRow({ nextInvoiceDate: new Date("2026-02-10") });
-    expect(isDueWithin14Days(row, NOW)).toBe(false);
-  });
-
-  it("is false for a date in the past", () => {
-    const row = billingRow({ nextInvoiceDate: new Date("2026-01-10") });
-    expect(isDueWithin14Days(row, NOW)).toBe(false);
-  });
-
-  it("is false when nextInvoiceDate is null", () => {
-    const row = billingRow({ nextInvoiceDate: null });
-    expect(isDueWithin14Days(row, NOW)).toBe(false);
-  });
-});
-
-describe("hasOpenExposure (M41)", () => {
-  it("is true when exposureTotal is greater than zero", () => {
-    expect(hasOpenExposure(billingRow({ exposureTotal: "300" }))).toBe(true);
-  });
-
-  it("is false when exposureTotal is zero", () => {
-    expect(hasOpenExposure(billingRow({ exposureTotal: "0" }))).toBe(false);
-  });
-});
-
-describe("resolveHealthCategory", () => {
-  it("groups overdue/prepare/draft/setupIncomplete as needsAttention", () => {
-    expect(resolveHealthCategory("overdue")).toBe("needsAttention");
-    expect(resolveHealthCategory("prepare")).toBe("needsAttention");
-    expect(resolveHealthCategory("draft")).toBe("needsAttention");
-    expect(resolveHealthCategory("setupIncomplete")).toBe("needsAttention");
-  });
-
-  it("maps upcoming and positive to their own categories", () => {
-    expect(resolveHealthCategory("upcoming")).toBe("upcoming");
-    expect(resolveHealthCategory("positive")).toBe("healthy");
-  });
-});
-
-describe("buildReceivablesAgeing", () => {
-  it("buckets by days past due and excludes non-USD invoices", () => {
-    const ageing = buildReceivablesAgeing(
-      [
-        invoice({
-          id: "not-due",
-          dueDate: new Date("2026-01-25"),
-          total: new Prisma.Decimal(100),
-        }),
-        invoice({
-          id: "late-15",
-          dueDate: new Date("2026-01-05"),
-          total: new Prisma.Decimal(200),
-        }),
-        invoice({
-          id: "late-40",
-          dueDate: new Date("2025-12-10"),
-          total: new Prisma.Decimal(300),
-        }),
-        invoice({
-          id: "non-usd",
-          dueDate: new Date("2026-01-05"),
-          total: new Prisma.Decimal(400),
-          currency: "GBP",
-        }),
-      ],
-      NOW,
-    );
-
-    expect(ageing.notYetDue.total).toBe("100");
-    expect(ageing.dueSoon.total).toBe("200");
-    expect(ageing.late.total).toBe("300");
   });
 });

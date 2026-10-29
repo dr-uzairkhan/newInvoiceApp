@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getNavItems, isActiveNavHref } from "./navItems";
-import { AlertsBell } from "./AlertsBell";
 import { signOutAction } from "@/actions/auth.actions";
 import type { Role } from "@/generated/prisma/client";
 
@@ -25,18 +24,15 @@ export function MobileTopBar() {
         </div>
         <span className="text-[13px] font-bold text-white">Invoice App</span>
       </div>
-      <div className="flex items-center gap-1.5">
-        <AlertsBell variant="mobile" />
-        <form action={signOutAction}>
-          <button
-            type="submit"
-            title="Sign out"
-            className="flex h-[26px] w-[26px] items-center justify-center rounded-lg bg-white/[0.08] text-white outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-          >
-            <LogOut className="h-3.5 w-3.5" />
-          </button>
-        </form>
-      </div>
+      <form action={signOutAction}>
+        <button
+          type="submit"
+          title="Sign out"
+          className="flex h-[26px] w-[26px] items-center justify-center rounded-lg bg-white/[0.08] text-white outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+        >
+          <LogOut className="h-3.5 w-3.5" />
+        </button>
+      </form>
     </div>
   );
 }

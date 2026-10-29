@@ -27,7 +27,7 @@ _Screenshots show the bundled demo seed data._
 - **Invoices** — `DRAFT → SENT → PAID` lifecycle (or `→ VOID`), with party/payment details snapshotted and **permanently locked at send time** so historical invoices survive future profile edits. Hourly and flat-amount line items, invoice notes, per-project invoice numbering.
 - **Documents** — an on-screen A4 preview that is pixel-identical to the downloadable **PDF** (Puppeteer) and mirrored in the downloadable **Excel** workbook (ExcelJS). No files stored server-side; generated on demand.
 - **Currency** — a project denominates invoices entirely in one currency (`SINGLE` mode: USD/AUD/GBP/NZD/AED/PKR/SAR) or works USD-primary with a manually-entered converted total (`DUAL` mode). Dashboards never blend currencies.
-- **Dashboard** — stat cards with trend sparklines, an attention banner, and a merged priority feed (overdue → setup gaps → stale drafts → recent activity).
+- **Dashboard** — a weekly action planner: one highest-priority action per project (overdue, invoice to prepare, draft to send, upcoming billing, setup gap), grouped by urgency, with same-category invoices folded into one line.
 - **AI-assisted data entry** _(optional)_ — a chat panel on Party/Payment Method/Invoice forms that stages form fields from natural language; it never auto-submits. Bring your own API key (Google/Anthropic/Groq) via the in-app `/settings` page; without one, the app is fully usable by hand.
 - **Authentication** — Google OAuth via Auth.js, no self-registration; database-backed sessions so revoking access takes effect immediately. Three roles (`ADMIN`/`STANDARD`/`RESTRICTED`), managed at `/settings/users`.
 

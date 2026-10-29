@@ -7,7 +7,7 @@ import { withReturnTo } from "@/lib/backNavigation";
  * (not `createdAt`, unlike every other invoice list — see
  * invoiceService.listByProject), defaulting to descending (newest number
  * first). This toggles the direction via a real `?sort=` link, same
- * URL-state idiom as `DashboardViewToggle`/`?tab=`/`?status=` elsewhere,
+ * URL-state idiom as `?tab=`/`?status=` elsewhere,
  * so the chosen direction stays bookmarkable/shareable rather than
  * living in client state.
  */

@@ -45,8 +45,8 @@ export type AlertFiringInput = {
  * latter — every "does this project need an invoice" computation (fired
  * status, next-invoice-date estimates, the dashboard's "prepare" action
  * items) must filter to this before using a schedule. General-purpose
- * surfaces (the nav bell, the project page's own "Next alert" card, the
- * Alert Schedules management list) intentionally do NOT filter — those are
+ * surfaces (the project page's own "Next alert" card, the Alert Schedules
+ * management list, the Projects-list indicator) intentionally do NOT filter — those are
  * about reminders in general, not specifically invoicing.
  */
 export function isSendInvoiceSchedule(input: {

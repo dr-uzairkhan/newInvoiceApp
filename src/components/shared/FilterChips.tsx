@@ -20,9 +20,8 @@ export function FilterChips<T extends string>({
   options: readonly FilterChipOption<T>[];
   /**
    * `string`, not `T` — a caller may have a wider filter-value type than
-   * this particular chip row covers (e.g. the dashboard Health view's
-   * `PortfolioPulseStats` cards add filter values with no matching chip
-   * here); passing one through should just leave every chip unhighlighted,
+   * this particular chip row covers (e.g. a page whose other
+   * controls add filter values with no matching chip here); passing one through should just leave every chip unhighlighted,
    * not fail to typecheck.
    */
   active: string;
