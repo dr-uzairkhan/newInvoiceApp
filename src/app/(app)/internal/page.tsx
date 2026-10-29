@@ -52,7 +52,7 @@ function StatTile({
         </p>
         {lines.length === 0 ? (
           <p className="mt-1 font-mono text-[20px] font-bold text-foreground">
-            —
+            {value ?? "—"}
           </p>
         ) : (
           lines.map((line) => (
