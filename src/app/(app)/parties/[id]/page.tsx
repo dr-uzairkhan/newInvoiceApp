@@ -16,7 +16,7 @@ import { partyService } from "@/services/partyService";
 import { paymentMethodService } from "@/services/paymentMethodService";
 import { projectService } from "@/services/projectService";
 import { invoiceService } from "@/services/invoiceService";
-import { toInvoiceTableRow } from "@/lib/invoiceTableRow";
+import { buildInvoiceTableRows } from "@/lib/invoiceTableRows";
 import { resolveBackTarget, withReturnTo } from "@/lib/backNavigation";
 import type { Party } from "@/generated/prisma/client";
 
@@ -222,7 +222,7 @@ async function InvoicesTab({
         />
       ) : (
         <InvoiceTable
-          invoices={invoices.map(toInvoiceTableRow)}
+          invoices={await buildInvoiceTableRows(invoices)}
           returnTo={withReturnTo(`/parties/${party.id}?tab=invoices`, returnTo)}
         />
       )}

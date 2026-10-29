@@ -27,7 +27,7 @@ export default async function SettingsPage() {
       <PageHeader
         eyebrow="Application settings"
         title="AI providers"
-        subtitle="API keys, provider priority and model fallback order for upcoming AI text help. No part of the app depends on this."
+        subtitle="API keys, provider priority and model fallback order for the Improve buttons on invoice text fields. Everything works without them."
       />
       <SettingsTabs active="providers" />
       <ReadinessBanner
@@ -65,7 +65,7 @@ function ReadinessBanner({ readyLabels }: { readyLabels: string[] }) {
   const count = readyLabels.length;
   const description =
     count === 0
-      ? "No provider is configured and enabled yet."
+      ? "Improve buttons stay hidden until a provider is configured and enabled."
       : count === 1
         ? `${readyLabels[0]} is the default provider.`
         : `${readyLabels[0]} is the default provider; ${readyLabels[1]} will be tried if it is unavailable.`;

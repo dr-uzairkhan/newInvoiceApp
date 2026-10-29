@@ -10,7 +10,7 @@ import {
 } from "@/components/invoice/InvoiceStatusFilter";
 import { Button } from "@/components/ui/button";
 import { invoiceService } from "@/services/invoiceService";
-import { toInvoiceTableRow } from "@/lib/invoiceTableRow";
+import { buildInvoiceTableRows } from "@/lib/invoiceTableRows";
 import { formatCurrency } from "@/lib/currency";
 import { DUE_SOON_WITHIN_DAYS } from "@/lib/dashboardTrend";
 import { withReturnTo } from "@/lib/backNavigation";
@@ -182,7 +182,7 @@ export default async function InvoicesPage({
         </>
       ) : (
         <InvoicesDirectory
-          invoices={invoices.map(toInvoiceTableRow)}
+          invoices={await buildInvoiceTableRows(invoices)}
           filterSlot={
             <InvoiceStatusFilter
               active={filter}

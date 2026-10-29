@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { withReturnTo } from "@/lib/backNavigation";
@@ -25,6 +25,7 @@ export type ProjectWorkspaceInvoice = {
   periodEnd: Date | null;
   total: string;
   currency: string;
+  commentCount: number;
 };
 
 const PAGE_SIZE = 4;
@@ -215,8 +216,17 @@ export function ProjectWorkspace({
                       href={withReturnTo(`/invoices/${invoice.id}`, returnTo)}
                       className="grid grid-cols-[1fr_auto_auto] gap-3 border-t border-muted py-2 text-[11px] first:border-t-0"
                     >
-                      <span className="font-mono font-semibold">
-                        {invoice.invoiceNumber}
+                      <span className="flex min-w-0 items-center gap-1.5 font-mono font-semibold">
+                        <span className="truncate">{invoice.invoiceNumber}</span>
+                        {invoice.commentCount > 0 ? (
+                          <span
+                            className="inline-flex shrink-0 items-center gap-0.5 font-sans text-[10px] font-normal text-muted-foreground"
+                            aria-label={`${invoice.commentCount} comments`}
+                          >
+                            <MessageSquare className="h-3 w-3" />
+                            {invoice.commentCount}
+                          </span>
+                        ) : null}
                       </span>
                       <span className="text-muted-foreground">
                         {invoice.periodStart && invoice.periodEnd

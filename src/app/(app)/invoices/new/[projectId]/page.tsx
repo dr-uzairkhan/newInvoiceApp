@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { InvoiceForm } from "@/components/invoice/InvoiceForm";
 import { projectService } from "@/services/projectService";
 import { invoiceService } from "@/services/invoiceService";
+import { getAiAssistConfigSummary } from "@/lib/ai-providers/config";
 import { toDateInputValue } from "@/lib/dates";
 import { computeDueDate } from "@/lib/invoicePeriod";
 import { resolveBackTarget } from "@/lib/backNavigation";
@@ -31,6 +32,7 @@ export default async function NewInvoiceForProjectPage({
     await invoiceService.getAutofillDataForProject(projectId);
   const initialPeriodStart =
     await invoiceService.previewNextPeriodStart(projectId);
+  const { configured: aiConfigured } = await getAiAssistConfigSummary();
 
   // Every real entry point into this page forwards its own `returnTo`
   // (project page, dashboard, etc.) — that takes priority over the
@@ -54,6 +56,7 @@ export default async function NewInvoiceForProjectPage({
       <InvoiceForm
         mode="create"
         projectId={project.id}
+        aiConfigured={aiConfigured}
         autofillData={autofillData}
         invoiceNumberConflict={conflictingLastInvoiceNumber}
         returnTo={returnTo}

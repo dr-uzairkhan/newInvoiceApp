@@ -67,3 +67,57 @@ describe("buildInvoiceActivity", () => {
     }
   });
 });
+
+describe("buildInvoiceActivity — comments (§31)", () => {
+  it("interleaves comments with the derived events by timestamp and carries the delete permission through", () => {
+    const events = buildInvoiceActivity(
+      {
+        status: "PAID",
+        createdAt: new Date("2026-01-01T10:00:00.000Z"),
+        updatedAt: new Date("2026-01-20T10:00:00.000Z"),
+        dueDate: new Date("2026-01-15"),
+      },
+      [
+        {
+          id: "c1",
+          body: "Client confirmed receipt",
+          createdAt: new Date("2026-01-05T10:00:00.000Z"),
+          authorName: "Pat",
+          canDelete: true,
+        },
+        {
+          id: "c2",
+          body: "Paid in full",
+          createdAt: new Date("2026-01-21T10:00:00.000Z"),
+          authorName: null,
+          canDelete: false,
+        },
+      ],
+    );
+
+    expect(events.map((event) => event.id)).toEqual([
+      "comment-c2",
+      "status",
+      "comment-c1",
+      "created",
+    ]);
+    const confirmed = events.find((event) => event.id === "comment-c1")!;
+    expect(confirmed.title).toBe("Pat commented");
+    expect(confirmed.detail).toBe("Client confirmed receipt");
+    expect(confirmed.comment).toEqual({ id: "c1", canDelete: true });
+    const paid = events.find((event) => event.id === "comment-c2")!;
+    expect(paid.title).toBe("Comment");
+    expect(paid.comment?.canDelete).toBe(false);
+  });
+
+  it("is unchanged when no comments are passed", () => {
+    const events = buildInvoiceActivity({
+      status: "DRAFT",
+      createdAt: new Date("2026-01-01"),
+      updatedAt: new Date("2026-01-01"),
+      dueDate: new Date("2026-01-15"),
+    });
+    expect(events.map((event) => event.id)).toEqual(["created"]);
+    expect(events[0].comment).toBeUndefined();
+  });
+});

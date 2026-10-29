@@ -1,5 +1,6 @@
 import type { InvoiceListItem } from "@/repositories/invoiceRepository";
 import type { InvoiceStatus } from "@/generated/prisma/client";
+import type { InvoiceCommentSummary } from "@/repositories/invoiceCommentRepository";
 
 /**
  * Next.js Server→Client Component props must be plain-serializable — a
@@ -20,9 +21,15 @@ export type InvoiceTableRow = {
   total: string;
   currency: string;
   project: { id: string; name: string; client: { id: string; name: string } };
+  /** Operational comments (§31) — count badge + newest body for the row's hover/dialog context. */
+  commentCount: number;
+  latestComment: string | null;
 };
 
-export function toInvoiceTableRow(invoice: InvoiceListItem): InvoiceTableRow {
+export function toInvoiceTableRow(
+  invoice: InvoiceListItem,
+  comments?: InvoiceCommentSummary,
+): InvoiceTableRow {
   return {
     id: invoice.id,
     invoiceNumber: invoice.invoiceNumber,
@@ -41,5 +48,7 @@ export function toInvoiceTableRow(invoice: InvoiceListItem): InvoiceTableRow {
         name: invoice.project.client.name,
       },
     },
+    commentCount: comments?.count ?? 0,
+    latestComment: comments?.latestBody ?? null,
   };
 }
