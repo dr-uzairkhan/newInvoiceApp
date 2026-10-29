@@ -7,6 +7,7 @@ import {
 } from "@/services/partyService";
 import { partySchema } from "@/lib/validation/party";
 import { requireRole } from "@/lib/authz";
+import { ROLES } from "@/lib/permissions";
 
 export type ActionResult<T> =
   | { success: true; data: T }
@@ -15,7 +16,7 @@ export type ActionResult<T> =
 export async function createPartyAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
-  const check = await requireRole(["ADMIN", "STANDARD"]);
+  const check = await requireRole(ROLES.writeParties);
   if (!check.ok) return { success: false, error: check.error };
 
   const parsed = partySchema.safeParse(input);
@@ -36,7 +37,7 @@ export async function updatePartyAction(
   id: string,
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
-  const check = await requireRole(["ADMIN", "STANDARD"]);
+  const check = await requireRole(ROLES.writeParties);
   if (!check.ok) return { success: false, error: check.error };
 
   const parsed = partySchema.safeParse(input);
@@ -57,7 +58,7 @@ export async function updatePartyAction(
 export async function deletePartyAction(
   id: string,
 ): Promise<ActionResult<null>> {
-  const check = await requireRole(["ADMIN", "STANDARD"]);
+  const check = await requireRole(ROLES.writeParties);
   if (!check.ok) return { success: false, error: check.error };
 
   try {

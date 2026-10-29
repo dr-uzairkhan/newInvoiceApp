@@ -8,6 +8,7 @@ import {
 } from "@/services/userService";
 import { userSchema } from "@/lib/validation/user";
 import { requireRole } from "@/lib/authz";
+import { ROLES } from "@/lib/permissions";
 import type { Role } from "@/generated/prisma/client";
 
 export type ActionResult<T> =
@@ -17,7 +18,7 @@ export type ActionResult<T> =
 export async function createUserAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
-  const check = await requireRole(["ADMIN"]);
+  const check = await requireRole(ROLES.manageUsers);
   if (!check.ok) return { success: false, error: check.error };
 
   const parsed = userSchema.safeParse(input);
@@ -45,7 +46,7 @@ export async function updateUserRoleAction(
   id: string,
   role: Role,
 ): Promise<ActionResult<{ id: string }>> {
-  const check = await requireRole(["ADMIN"]);
+  const check = await requireRole(ROLES.manageUsers);
   if (!check.ok) return { success: false, error: check.error };
 
   try {
@@ -63,7 +64,7 @@ export async function updateUserRoleAction(
 export async function deleteUserAction(
   id: string,
 ): Promise<ActionResult<null>> {
-  const check = await requireRole(["ADMIN"]);
+  const check = await requireRole(ROLES.manageUsers);
   if (!check.ok) return { success: false, error: check.error };
 
   try {
