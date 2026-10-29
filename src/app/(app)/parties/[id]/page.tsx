@@ -17,7 +17,6 @@ import { paymentMethodService } from "@/services/paymentMethodService";
 import { projectService } from "@/services/projectService";
 import { invoiceService } from "@/services/invoiceService";
 import { toInvoiceTableRow } from "@/lib/invoiceTableRow";
-import { getAiAssistConfigSummary } from "@/lib/ai-providers/config";
 import { resolveBackTarget, withReturnTo } from "@/lib/backNavigation";
 import type { Party } from "@/generated/prisma/client";
 
@@ -48,7 +47,6 @@ export default async function PartyDetailPage({
   }
 
   if (isEditingOverview) {
-    const aiConfig = await getAiAssistConfigSummary();
     return (
       <>
         <PageHeader
@@ -71,7 +69,6 @@ export default async function PartyDetailPage({
         <PartyForm
           mode="edit"
           partyId={party.id}
-          aiConfig={aiConfig}
           defaultValues={{
             name: party.name,
             email: party.email ?? "",

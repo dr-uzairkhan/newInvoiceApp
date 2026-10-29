@@ -18,7 +18,6 @@ import { invoiceService } from "@/services/invoiceService";
 import { documentService } from "@/services/documentService";
 import { toDateInputValue, isOverdue } from "@/lib/dates";
 import { buildInvoiceActivity } from "@/lib/invoiceActivity";
-import { getAiAssistConfigSummary } from "@/lib/ai-providers/config";
 import { resolveBackTarget, withReturnTo } from "@/lib/backNavigation";
 
 function resolveTab(value: string | undefined): InvoiceDetailTab {
@@ -132,8 +131,6 @@ export default async function InvoiceDetailPage({
       </>
     );
   }
-
-  const aiConfig = await getAiAssistConfigSummary();
   const previewHref = withReturnTo(`/invoices/${invoice.id}`, returnTo);
   const headerAction = (
     <div className="flex flex-wrap items-center gap-3">
@@ -170,7 +167,6 @@ export default async function InvoiceDetailPage({
         mode="edit"
         invoiceId={invoice.id}
         projectId={invoice.projectId}
-        aiConfig={aiConfig}
         returnTo={returnTo}
         project={{
           name: invoice.project.name,

@@ -22,7 +22,7 @@ import type { Party } from "@/generated/prisma/client";
 /**
  * M17.3 — the inline "create new party" escape
  * hatch embeds the full PartyForm (identical fields to the standalone
- * /parties/new page, including address) in embedded/AI-assist-free mode, so
+ * /parties/new page, including address) in embedded mode, so
  * a party created here is never structurally incomplete and the Project
  * form underneath is never navigated away from or lost. Only rendered while
  * `open`, so each opening starts from a fresh, blank form.

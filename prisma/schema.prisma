@@ -365,7 +365,7 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-/// M16 — DB-backed AI-assist provider config,
+/// M16 — DB-backed AI provider config,
 /// replacing M11's environment-variables-only decision. Exactly one row per
 /// fixed provider (google/anthropic/groq — never a dynamic/admin-defined
 /// provider list, see the M16 note). `apiKeyCiphertext` is AES-256-GCM

@@ -22,7 +22,6 @@ The application-chrome design system: tokens, components, page templates, and re
 
 - **Dual-frame canvas**: fixed-width dark left sidebar (desktop) + fluid main stage, `max-width: 1200px`, `padding: 40px` desktop / `16px` mobile.
 - **Asymmetric grid**: `2fr/1fr` (`.layout-grid`) for primary content + supporting context. Single-column stacks use `.layout-single`.
-- **Three-panel variant**: creation forms that include the AI-assist panel (§14) use a `2fr/1fr` split where the `1fr` slot is the assist panel instead of a generic "context" card — see §14 for when this applies.
 
 ```
 ┌──────────────┬────────────────────────────────────────────┐
@@ -30,8 +29,8 @@ The application-chrome design system: tokens, components, page templates, and re
 │   sidebar    ├────────────────────────────────────────────┤
 │   240px      │  stats row (if applicable)                  │
 │   fixed      ├───────────────────────────┬──────────────────┤
-│   (dark)     │  primary panel (2fr)      │  context OR      │
-│              │  (form / table)           │  AI-assist (1fr) │
+│   (dark)     │  primary panel (2fr)      │  context (1fr)   │
+│              │  (form / table)           │                  │
 └──────────────┴───────────────────────────┴──────────────────┘
 ```
 
@@ -56,8 +55,8 @@ Full spec in `design_handoff_dashboard_v2/README.md` §1 — read that file befo
 | **Directory** | Parties list, Invoices list | A shared shape: a summary stat row (4 cards, §16's stat-card styling reused), a client-side search box, a server-driven filter chip row (`?type=`/`?status=` — Parties: All/Client/Contractor; Invoices: All/Draft/Sent/Paid/Overdue/Void), and the dark-header grid/mobile-card list itself (§9). Parties additionally offers a client-side **Table/Cards view toggle** (`ViewToggle`/`useViewPreference`, shared components — the choice persists via its own `localStorage` key) with a matching card-grid layout (accent bar / identity row / status-and-amount row / a small facts `<dl>` / footer link); Invoices is table-only. Below `1024px` both render stacked cards instead of a table regardless of the toggle — see §18. Parties' Client/Contractor filter is display-only, derived live from `Project.ContractorId`/`ClientId` — see `Docs/implementation_decisions.md` §15. |
 | **Projects list** | Projects list | Diverges from the other two directories (2026-08-28 rework): no stat row. Search, the `?status=` filter chips (All/Active/Needs attention/Archived), and a **three-way Workspace/Cards/Rows view toggle** (its own inline component, not the shared `ViewToggle`; persisted the same `useViewPreference`/`localStorage` way) share one toolbar row — **Workspace** is the default. **Workspace**: a paginated (4 per page), 2-column grid of project cards — accent bar by billing-status tone, name + client·contractor, status pill, a facts `<dl>` (Billing/currency, Next invoice, Payment method — warns if missing), and up to 2 recent invoices or a "Create invoice" link when there are none. **Cards**: the same accent-bar/`<dl>` card shape the other two directories use, with an overdue-count note in the identity row and a labeled "Outstanding invoices" `<dl>` field (sent-invoice count) alongside Last billed/Next billing/Payment setup. **Rows**: the dark-header grid (§9), which also carries manual reorder arrows (`Project.SortOrder`) on the unfiltered Active and All tabs only — computed from a row's position **among ACTIVE projects specifically**, so an ARCHIVED row interleaved on the All tab never renders arrows or counts as a swap target; arrows are hidden entirely under an active search query or on the Needs attention/Archived tabs. |
 | **Detail Tabs** | Project detail, Invoice detail (non-`DRAFT` only) | Three URL-driven tabs (`?tab=`, not client-side state, so a reload/share preserves the active tab): Project detail is Overview / Invoices & alerts / Billing setup; Invoice detail is Summary / Preview / Activity. A `DRAFT` invoice has no tabs — it's still the single edit-form page (next row), since there's nothing to preview/review yet. Overview/Summary tabs open on a row of 3–4 small metric cards, followed by a two-column facts panel + a supporting panel (recent activity / amount breakdown). |
-| **Form/Detail — with AI assist** | Create Party, Add Payment Method, Create/Edit Draft Invoice | Uses the three-panel layout (§2/§14): form on the left, AI-assist chat on the right. Create Invoice is gated behind a mandatory, searchable project-picker card grid first (§20's standing pattern) — the form itself only appears after a project is chosen, with a compact `ProjectContextBar` (avatar, currency, payment method, live invoice-number preview, a "Change" link back to the picker) standing in for the older two-column project-facts card. Form fields are grouped under 3 numbered section headers (Invoice details / Line items / Notes) — cosmetic grouping only, no change to validation or field behavior. |
-| **Form/Detail — no AI assist** | Create/Edit Project | Uses the plain `2fr/1fr` layout: form left, a normal supporting-info card right (e.g. existing project list) — **never an AI-assist panel here**, by explicit decision. Contractor/Client pickers each need an inline "+ Create new party" affordance for when the list is empty. On the Project detail page, this same form renders inline as the "Billing setup" tab rather than a separate route. |
+| **Form/Detail — entity forms** | Create Party, Add Payment Method, Create/Edit Draft Invoice | Uses the `2fr/1fr` grid with the form in the `2fr` column; the `1fr` column is currently empty (no supporting card), which keeps form width consistent with the Project form. Create Invoice is gated behind a mandatory, searchable project-picker card grid first (§20's standing pattern) — the form itself only appears after a project is chosen, with a compact `ProjectContextBar` (avatar, currency, payment method, live invoice-number preview, a "Change" link back to the picker) standing in for the older two-column project-facts card. Form fields are grouped under 3 numbered section headers (Invoice details / Line items / Notes) — cosmetic grouping only, no change to validation or field behavior. |
+| **Form/Detail — Project** | Create/Edit Project | Uses the `2fr/1fr` layout: form left, a supporting-info card right (e.g. existing project list). Contractor/Client pickers each need an inline "+ Create new party" affordance for when the list is empty. On the Project detail page, this same form renders inline as the "Billing setup" tab rather than a separate route. |
 | **Settings** | AI providers (`/settings`) | A readiness banner ("N providers ready", green/muted by whether ≥1 provider is enabled + has a key + has at least one model) above a stack of exactly 3 fixed, collapsible provider cards (`Docs/implementation_decisions.md` §19 — no add/remove). Each card: a tone-colored avatar monogram, a Default/Fallback-N role badge, up/down reorder arrows, a collapse chevron (defaults expanded), an API key field with a client-side Show/Hide toggle, and a numbered, reorderable model list. |
 | **Document Preview** | Invoice detail's Preview tab (or the whole page, for a `DRAFT`) | See §15. Must support both editable (`DRAFT`) and locked (`SENT`/`PAID`/`VOID`) states. |
 | **Auth** | Login (`/login`) | Standalone page outside the app shell — no session yet, so no nav chrome. A two-panel split: a dark nav-surface brand panel (logo lockup, "Operational view" tagline) beside a plain light sign-in form (Google OAuth button, generic rejected-sign-in message). Below `1024px` the brand panel is hidden and the form goes full width. |
@@ -230,14 +229,13 @@ Applies to: "No parties yet" → "Create your first party"; "No payment methods"
 
 ---
 
-## 14. AI-Assist Panel
+## 14. AI Text Help
 
-A persistent right-hand panel (`1fr` slot in the three-panel layout, §2) alongside the **Party**, **Payment Method**, and **Invoice** forms only — **never on the Project form**.
+AI appears only as a small, field-level affordance next to long-text fields on the **Invoice** form (never Project), per `Docs/implementation_decisions.md` §19. There is no chat panel and no persistent AI column in any layout.
 
-- **Structure**: a card (`.card`) titled "AI Assist" (or similar), containing a scrollable message/prompt history area and a bottom-anchored text input + send button — a standard chat-panel shape, not a novel widget.
-- **Behavior signal**: after a prompt is processed, the corresponding form fields visibly populate/highlight briefly (e.g. a momentary `brand-light` background flash on the affected fields) so the admin can see exactly what changed before reviewing and submitting — the panel never submits the form itself.
-- **Absence is normal, not broken**: when unconfigured or failing, the panel either doesn't render at all or shows a quiet, low-emphasis empty state (not an `alert-error`) — this is a progressive enhancement, not a required part of the page. The form itself never indicates anything is "missing."
-- **Settings entry point**: a small "Configure" affordance in the panel header links directly into the `/settings` page — the DB-backed provider/model/key configuration UI (`Docs/implementation_decisions.md` §19). Kept out of the main form flow entirely — no inline settings editing on the form pages themselves.
+- **Behavior signal**: when a field is rewritten, it flashes briefly (`brand-light` background, the `highlighted` prop on `FormField`/`LineItemsEditor`) so the admin sees exactly what changed before saving; the form is never submitted on the admin's behalf.
+- **Absence is normal, not broken**: with no provider configured the affordance is not rendered at all — no empty state, no `alert-error`; the form never indicates anything is "missing."
+- **Settings entry point**: provider/model/key configuration lives only on the `ADMIN`-only `/settings` page — never inline on a form.
 
 ---
 
@@ -293,7 +291,7 @@ Breakpoints `640/768/1024/1280px`.
 
 - `<1024px`: the sidebar is replaced by the dark top bar + bottom tab bar (§3).
 - `<1024px`: every top-level list — **Parties, Projects, Invoices** — renders stacked cards instead of its table (§4/§9). Smaller embedded/dashboard tables (e.g. Project billing status, §16) keep horizontal scroll inside their own `overflow-x-auto` wrapper instead of switching to cards.
-- `<768px`: `2fr/1fr` layouts (including the three-panel AI-assist layout) collapse to a single column, with the AI-assist panel stacking below the form rather than beside it.
+- `<768px`: `2fr/1fr` layouts collapse to a single column, the supporting card (where there is one) stacking below the primary panel.
 - Invoice document padding `48px → 20px` on small screens (preview context only — print/PDF output is always the fixed A4 geometry, §15).
 
 ---
@@ -322,6 +320,5 @@ theme: {
 - `Button`: `variant="default"` → `.btn-primary`; `variant="outline"` → `.btn-secondary`; `size="sm"` → `.btn-sm`.
 - `Badge`: two separate variants — `status` (5 fixed) and `tag` (neutral/brand only) — never share a prop enum.
 - `Card`: shadcn `<Card>` primitives, override border to `border-slate-200/90`, shadow to the documented `shadow-sm`.
-- **AI-assist panel**: build as its own component (not a shadcn primitive) — a `Card` containing a message list + `Textarea` + `Button`, per §14.
 - Load fonts via `next/font/google`.
 - Render currency using `Intl.NumberFormat(locale, { style: 'currency', currency })` with the actual currency being displayed — never a hardcoded `$`.

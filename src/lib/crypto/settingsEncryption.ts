@@ -25,7 +25,7 @@ function encryptionKey(): Buffer {
   const secret = process.env.SETTINGS_ENCRYPTION_KEY;
   if (!secret) {
     throw new Error(
-      "SETTINGS_ENCRYPTION_KEY is not set — required to store AI provider API keys.",
+      "SETTINGS_ENCRYPTION_KEY is not set — required to encrypt stored secrets (payment-method fields, AI provider API keys).",
     );
   }
   return createHash("sha256").update(secret).digest();

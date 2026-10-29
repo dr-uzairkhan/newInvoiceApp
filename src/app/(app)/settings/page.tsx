@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { aiProviderSettingsService } from "@/services/aiProviderSettingsService";
 
 /**
- * M16 — DB-backed AI-assist configuration, replacing M11's read-only
+ * M16 — DB-backed AI provider configuration, replacing M11's read-only
  * env-var summary. Restyled per the v3 redesign (milestone 7,
  * ui_redesign_handoff_v3 screenshots/13-14) — always exactly 3 fixed
  * provider cards (Docs/implementation_decisions.md §19: "no dynamic
@@ -27,7 +27,7 @@ export default async function SettingsPage() {
       <PageHeader
         eyebrow="Application settings"
         title="AI providers"
-        subtitle="Configure AI-assisted form filling, provider priority and model fallback order. Every form remains fully usable without AI."
+        subtitle="API keys, provider priority and model fallback order for the app's AI text features. Everything else works without AI."
       />
       <SettingsTabs active="providers" />
       <ReadinessBanner
@@ -65,7 +65,7 @@ function ReadinessBanner({ readyLabels }: { readyLabels: string[] }) {
   const count = readyLabels.length;
   const description =
     count === 0
-      ? "AI-assisted fields are unavailable until a provider is configured and enabled."
+      ? "AI text features are unavailable until a provider is configured and enabled."
       : count === 1
         ? `${readyLabels[0]} is the default provider.`
         : `${readyLabels[0]} is the default provider; ${readyLabels[1]} will be tried if it is unavailable.`;

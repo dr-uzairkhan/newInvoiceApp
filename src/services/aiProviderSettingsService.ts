@@ -27,7 +27,7 @@ export type ProviderSettingDisplay = {
 };
 
 /**
- * DB-backed AI-assist config, replacing M11's
+ * DB-backed AI provider config, replacing M11's
  * environment-variables-only resolution. `ensureSeeded()` runs before every
  * read so the app never needs a separate manual seed step for the 3 fixed
  * provider rows.

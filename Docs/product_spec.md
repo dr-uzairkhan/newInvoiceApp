@@ -264,10 +264,9 @@ Deletion is governed entirely by **live** foreign-key references — never by hi
 - `Invoice` *(resolved during blueprint planning — see `Docs/implementation_decisions.md` §22, not explicit in the original spec)*: deletable in **any** status, with an admin confirmation prompt; `InvoiceItem` rows cascade. This is the mechanism that makes the `Project` deletion rule above actually satisfiable.
 - `ProjectAlertSchedule`: deletable freely by the admin at any time — nothing ever references it live. Cascades automatically when the parent `Project` is deleted.
 
-## 8. AI-Assisted Data Entry
+## 8. AI Provider Configuration
 
-A chat-style assistant is available on the **Party**, **Payment Method**, and **Invoice** creation forms (not Project). It only ever populates visible form fields for human review — it never creates or saves a record directly, and every form remains fully usable by hand with the assistant entirely absent. No form requires it to resolve free text against existing database records. The underlying model/provider (Google Gemini, Anthropic Claude, or Groq) and API key are user-configurable, with a configurable fallback sequence if the primary model is unavailable. Full detail in `Docs/implementation_decisions.md` §19.
-
+AI is a small, optional text-help capability, not a data-entry channel: no form stages or submits records through a model, and every form is fully usable with no provider configured. The provider/model/key configuration lives in the database and is edited on the `ADMIN`-only `/settings` page: one row per fixed provider (Google Gemini, Anthropic Claude, Groq) with an encrypted API key, an ordered model list, an enabled flag, and a cross-provider fallback order. Full detail in `Docs/implementation_decisions.md` §19.
 ## 9. Project Technical Stack
 
 | Layer | Technology | Purpose |

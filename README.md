@@ -28,7 +28,6 @@ _Screenshots show the bundled demo seed data._
 - **Documents** — an on-screen A4 preview that is pixel-identical to the downloadable **PDF** (Puppeteer) and mirrored in the downloadable **Excel** workbook (ExcelJS). No files stored server-side; generated on demand.
 - **Currency** — a project denominates invoices entirely in one currency (`SINGLE` mode: USD/AUD/GBP/NZD/AED/PKR/SAR) or works USD-primary with a manually-entered converted total (`DUAL` mode). Dashboards never blend currencies.
 - **Dashboard** — a weekly action planner: one highest-priority action per project (overdue, invoice to prepare, draft to send, upcoming billing, setup gap), grouped by urgency, with same-category invoices folded into one line.
-- **AI-assisted data entry** _(optional)_ — a chat panel on Party/Payment Method/Invoice forms that stages form fields from natural language; it never auto-submits. Bring your own API key (Google/Anthropic/Groq) via the in-app `/settings` page; without one, the app is fully usable by hand.
 - **Authentication** — Google OAuth via Auth.js, no self-registration; database-backed sessions so revoking access takes effect immediately. Three roles (`ADMIN`/`STANDARD`/`RESTRICTED`), managed at `/settings/users`.
 
 ## Tech stack
@@ -67,9 +66,9 @@ Then `pnpm dev` → **http://localhost:3001**, sign in with Google.
 
 The app runs on **port 3001** by default (change `dev`/`start` in `package.json` and `NEXT_PUBLIC_APP_URL` in `.env.local` together if you need a different port).
 
-### Optional: AI assist
+### Optional: AI providers
 
-Open `/settings`, add an API key for Google, Anthropic, and/or Groq, and list the models you want tried in order. Keys are encrypted at rest with `SETTINGS_ENCRYPTION_KEY` from `.env.local` — set it to any string before saving keys, and don't change it afterwards (saved keys become undecryptable).
+The app can call Google, Anthropic, or Groq models for small text-help features. Open `/settings`, add an API key for the providers you want, and list the models to try in order. Nothing requires this — every form is fully usable by hand. Keys are encrypted at rest with `SETTINGS_ENCRYPTION_KEY` from `.env.local` — set it to any string before saving keys, and don't change it afterwards (saved keys become undecryptable).
 
 ## Scripts
 

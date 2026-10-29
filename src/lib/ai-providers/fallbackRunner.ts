@@ -72,7 +72,7 @@ function extractJson(text: string): unknown {
  * models in list order), stopping at the first response that parses as JSON
  * and validates against `schema`. Every per-target failure (network error,
  * non-JSON response, schema mismatch) is logged and swallowed — this never
- * throws, since AI-assist is pure progressive enhancement and must never
+ * throws, since every AI feature is pure progressive enhancement and must never
  * surface a blocking error to a form.
  */
 export async function runWithFallback<T>(params: {

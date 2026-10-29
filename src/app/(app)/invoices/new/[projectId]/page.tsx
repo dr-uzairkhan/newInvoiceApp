@@ -5,7 +5,6 @@ import { projectService } from "@/services/projectService";
 import { invoiceService } from "@/services/invoiceService";
 import { toDateInputValue } from "@/lib/dates";
 import { computeDueDate } from "@/lib/invoicePeriod";
-import { getAiAssistConfigSummary } from "@/lib/ai-providers/config";
 import { resolveBackTarget } from "@/lib/backNavigation";
 
 export default async function NewInvoiceForProjectPage({
@@ -28,7 +27,6 @@ export default async function NewInvoiceForProjectPage({
   const initialDueDate = project.invoicePeriodType
     ? computeDueDate(today, project.invoicePeriodType)
     : today;
-  const aiConfig = await getAiAssistConfigSummary();
   const autofillData =
     await invoiceService.getAutofillDataForProject(projectId);
   const initialPeriodStart =
@@ -56,7 +54,6 @@ export default async function NewInvoiceForProjectPage({
       <InvoiceForm
         mode="create"
         projectId={project.id}
-        aiConfig={aiConfig}
         autofillData={autofillData}
         invoiceNumberConflict={conflictingLastInvoiceNumber}
         returnTo={returnTo}
