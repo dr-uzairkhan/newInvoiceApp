@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { invoiceSchema, type InvoiceInput } from "@/lib/validation/invoice";
 import {
+  previewInvoiceNumberAction,
   createInvoiceDraftAction,
   updateInvoiceDraftAction,
 } from "@/actions/invoice.actions";
@@ -19,7 +20,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { InvoiceAutofillData } from "@/services/invoiceService";
 import { computeDueDate } from "@/lib/invoicePeriod";
-import { formatDisplayDate } from "@/lib/dates";
 import { withReturnTo, resolveBackTarget } from "@/lib/backNavigation";
 import type {
   DisplayCurrency,
@@ -223,8 +223,8 @@ export function InvoiceForm({
    * M19.2b — create-form only (edit mode leaves an
    * existing draft's dueDate untouched, since there's no way to tell whether
    * a loaded value was auto-computed or deliberately hand-set). Tracks the
-   * last auto-computed value so any divergence — typed by hand, or set by an
-   * applied AI-assist suggestion — permanently opts this form session out of
+   * last auto-computed value so any divergence (typed by hand) permanently
+   * opts this form session out of
    * further auto-recompute, mirroring PaymentMethodForm's type-template-swap
    * ref (`previousTypeRef`).
    */
@@ -244,6 +244,37 @@ export function InvoiceForm({
     lastAutoDueDateRef.current = computed;
     setValue("dueDate", computed, { shouldValidate: true });
   }, [issueDate, mode, project.invoicePeriodType, getValues, setValue]);
+
+  /**
+   * Create-form only: the suggested number was computed server-side for
+   * today's date. If the admin changes the issue date before touching the
+   * number, recompute it for that date — date tokens and a month/year-scoped
+   * `{number}` both depend on it. Same "until manually overridden" shape as
+   * the due-date effect above; the first run (mount) is skipped since the
+   * page already previewed for the initial date, and a response that lands
+   * after the date changed again is dropped via the request counter.
+   */
+  const lastAutoInvoiceNumberRef = useRef<string | undefined>(
+    getValues("invoiceNumber"),
+  );
+  const numberPreviewRunsRef = useRef(0);
+  const [numberConflict, setNumberConflict] = useState<string | null>(
+    invoiceNumberConflict ?? null,
+  );
+
+  useEffect(() => {
+    if (mode !== "create" || !issueDate) return;
+    const run = ++numberPreviewRunsRef.current;
+    if (run === 1) return;
+    if (getValues("invoiceNumber") !== lastAutoInvoiceNumberRef.current) return;
+    void previewInvoiceNumberAction(projectId, issueDate).then((result) => {
+      if (run !== numberPreviewRunsRef.current || !result.success) return;
+      if (getValues("invoiceNumber") !== lastAutoInvoiceNumberRef.current) return;
+      lastAutoInvoiceNumberRef.current = result.data.suggested;
+      setValue("invoiceNumber", result.data.suggested, { shouldValidate: true });
+      setNumberConflict(result.data.conflictingLastInvoiceNumber);
+    });
+  }, [issueDate, mode, projectId, getValues, setValue]);
 
   /**
    * M39 — create-form only, same "recompute until manually overridden"
@@ -270,42 +301,13 @@ export function InvoiceForm({
     setValue("periodEnd", issueDate, { shouldValidate: true });
   }, [issueDate, mode, getValues, setValue]);
 
-  /**
-   * M39 — create-form only: once both period bounds are set, generate a
-   * plain-English `itemsNote` sentence describing them, the same "recompute
-   * until manually touched" pattern as the two effects above. Never runs in
-   * edit mode — an existing invoice's `itemsNote` predates this feature and
-   * may already contain hand-typed period text (the exact workaround this
-   * feature replaces), which must never be silently overwritten.
-   */
-  const lastAutoItemsNoteRef = useRef<string | undefined>(
-    getValues("itemsNote"),
-  );
-  const periodStart = watch("periodStart");
-  const periodEnd = watch("periodEnd");
-
-  useEffect(() => {
-    if (mode !== "create" || !periodStart || !periodEnd) return;
-    const currentItemsNote = getValues("itemsNote");
-    if (
-      lastAutoItemsNoteRef.current !== undefined &&
-      currentItemsNote !== lastAutoItemsNoteRef.current
-    ) {
-      return;
-    }
-    const generated = `Covers services rendered ${formatDisplayDate(new Date(periodStart))} – ${formatDisplayDate(new Date(periodEnd))}.`;
-    lastAutoItemsNoteRef.current = generated;
-    setValue("itemsNote", generated, { shouldValidate: true });
-  }, [periodStart, periodEnd, mode, getValues, setValue]);
-
   const [autofillPending, setAutofillPending] = useState(false);
 
   /**
    * M18 (Autofill) — items/notes only; invoiceNumber/dates/convertedTotal
-   * are left exactly as they are. Every autofilled field, `itemsNote`
-   * included, is copied over verbatim; `lastAutoItemsNoteRef` is left
-   * untouched so the M39 recompute effect above treats a carried-over note
-   * like a hand-typed one and leaves it alone.
+   * are left exactly as they are. Every autofilled field is copied over
+   * verbatim: `itemsNote` is plain free text (the billing period is printed
+   * from the structured period fields, not from this note).
    */
   function handleAutofill() {
     if (!autofillData) return;
@@ -407,11 +409,11 @@ export function InvoiceForm({
                     this app.
                   </p>
                 ) : null}
-                {mode === "create" && invoiceNumberConflict ? (
+                {mode === "create" && numberConflict ? (
                   <p className="text-[11px] font-semibold text-[var(--alert-warning-text)]">
                     Doesn&rsquo;t continue last invoice{" "}
-                    <span className="font-mono">{invoiceNumberConflict}</span> —
-                    format mismatch.
+                    <span className="font-mono">{numberConflict}</span> — it
+                    matches none of this project&rsquo;s formats.
                   </p>
                 ) : null}
               </FormField>

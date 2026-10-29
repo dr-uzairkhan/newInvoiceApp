@@ -89,6 +89,12 @@ export function ProjectDetailCard({
           label="Invoice Number Format"
           value={project.invoiceNumberFormat}
         />
+        {project.previousInvoiceNumberFormats.length > 0 ? (
+          <DetailField
+            label="Previous Formats"
+            value={project.previousInvoiceNumberFormats.join(", ")}
+          />
+        ) : null}
         <DetailField label="Next Invoice Number" value={nextInvoiceNumber} />
         <DetailField
           label="Invoice Period"

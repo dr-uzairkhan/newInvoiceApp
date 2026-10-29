@@ -23,6 +23,7 @@ export type ProjectWriteInput = {
   contractorId: string;
   preferredPaymentMethodId: string | null;
   invoiceNumberFormat: string;
+  previousInvoiceNumberFormats: string[];
   invoicePeriodType: InvoicePeriodType | null;
   currencyMode: ProjectCurrencyMode;
   displayCurrency: DisplayCurrency;

@@ -53,6 +53,7 @@ function fakeData(
       },
     ],
     allItemsFlat: false,
+    periodLine: null,
     itemsNote: null,
     subtotal: "300",
     total: "300",

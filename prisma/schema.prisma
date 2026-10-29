@@ -148,6 +148,12 @@ model Project {
   preferredPaymentMethodId String?
   preferredPaymentMethod PaymentMethod? @relation("ProjectPreferredPaymentMethod", fields: [preferredPaymentMethodId], references: [id], onDelete: Restrict)
   invoiceNumberFormat String
+  /// Formats this project used before the current one. A number matching
+  /// any of them is recognised as part of the project's history (so changing
+  /// the format never flags older invoices); the sequence itself is derived
+  /// from numbers matching the current format only. Appended automatically
+  /// whenever `invoiceNumberFormat` changes; editable on the project form.
+  previousInvoiceNumberFormats String[] @default([])
   invoicePeriodType InvoicePeriodType?
   displayCurrency DisplayCurrency @default(USD)
   currencyMode ProjectCurrencyMode @default(SINGLE)

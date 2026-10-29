@@ -27,7 +27,7 @@ export default async function SettingsPage() {
       <PageHeader
         eyebrow="Application settings"
         title="AI providers"
-        subtitle="API keys, provider priority and model fallback order for the app's AI text features. Everything else works without AI."
+        subtitle="API keys, provider priority and model fallback order for upcoming AI text help. No part of the app depends on this."
       />
       <SettingsTabs active="providers" />
       <ReadinessBanner
@@ -65,7 +65,7 @@ function ReadinessBanner({ readyLabels }: { readyLabels: string[] }) {
   const count = readyLabels.length;
   const description =
     count === 0
-      ? "AI text features are unavailable until a provider is configured and enabled."
+      ? "No provider is configured and enabled yet."
       : count === 1
         ? `${readyLabels[0]} is the default provider.`
         : `${readyLabels[0]} is the default provider; ${readyLabels[1]} will be tried if it is unavailable.`;

@@ -3,10 +3,9 @@ import { ArrowDown01, ArrowUp01 } from "lucide-react";
 import { withReturnTo } from "@/lib/backNavigation";
 
 /**
- * M44 — the project detail page's Invoices tab sorts by `InvoiceNumber`
- * (not `createdAt`, unlike every other invoice list — see
- * invoiceService.listByProject), defaulting to descending (newest number
- * first). This toggles the direction via a real `?sort=` link, same
+ * M44 — the project detail page's Invoices tab sorts by issue date (like
+ * every other invoice list — see invoiceRepository.findMany), defaulting to
+ * descending (newest first). This toggles the direction via a real `?sort=` link, same
  * URL-state idiom as `?tab=`/`?status=` elsewhere,
  * so the chosen direction stays bookmarkable/shareable rather than
  * living in client state.

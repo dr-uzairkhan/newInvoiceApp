@@ -15,6 +15,7 @@ import { InvoiceNumberFormatHelp } from "@/components/project/InvoiceNumberForma
 import { CreatePaymentMethodDialog } from "@/components/payment-method/CreatePaymentMethodDialog";
 import { FormField } from "@/components/shared/FormField";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -109,6 +110,7 @@ export function ProjectForm({
       contractorId: "",
       preferredPaymentMethodId: "",
       invoiceNumberFormat: "{abbreviation}-{number}-{date}",
+      previousInvoiceNumberFormats: "",
       invoicePeriodType: "",
       currencyMode: "SINGLE",
       displayCurrency: "USD",
@@ -339,6 +341,26 @@ export function ProjectForm({
               placeholder="{abbreviation}-{number}-{date}"
               {...register("invoiceNumberFormat")}
             />
+          </FormField>
+
+          <FormField
+            label="Previous Invoice Number Formats"
+            htmlFor="previousInvoiceNumberFormats"
+            error={errors.previousInvoiceNumberFormats?.message}
+          >
+            <Textarea
+              id="previousInvoiceNumberFormats"
+              rows={2}
+              className="font-mono"
+              placeholder="One per line — formats this project used before"
+              {...register("previousInvoiceNumberFormats")}
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Invoice numbers matching any of these are recognised as this
+              project&rsquo;s history, so changing the format above never flags
+              older invoices. The outgoing format is added here automatically
+              when you change it.
+            </p>
           </FormField>
 
           <FormField

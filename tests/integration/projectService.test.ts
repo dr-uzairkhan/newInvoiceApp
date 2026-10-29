@@ -269,6 +269,81 @@ describe("projectService", () => {
     ).rejects.toBeInstanceOf(PreferredPaymentMethodMismatchError);
   });
 
+  it("stores previous invoice-number formats from the free-text field, deduped and without the current format", async () => {
+    const contractor = await createTestParty("[test] Formats Contractor");
+    const client = await createTestParty("[test] Formats Client");
+    const project = await projectService.create(
+      baseProjectInput({
+        name: "[test] Formats Project",
+        contractorId: contractor.id,
+        clientId: client.id,
+        invoiceNumberFormat: "{abbreviation}-{number}",
+        previousInvoiceNumberFormats:
+          "OLD-{number}\n{abbreviation}-{number}\n OLD-{number} , Q-{date}/{number}",
+      }),
+    );
+    createdProjectIds.push(project.id);
+
+    const stored = await prisma.project.findUniqueOrThrow({
+      where: { id: project.id },
+    });
+    expect(stored.previousInvoiceNumberFormats).toEqual([
+      "OLD-{number}",
+      "Q-{date}/{number}",
+    ]);
+  });
+
+  it("appends the outgoing format to the previous formats when the format changes on update, and leaves it alone otherwise", async () => {
+    const contractor = await createTestParty("[test] Change Contractor");
+    const client = await createTestParty("[test] Change Client");
+    const input = baseProjectInput({
+      name: "[test] Change Project",
+      contractorId: contractor.id,
+      clientId: client.id,
+      invoiceNumberFormat: "{abbreviation}-{number}",
+    });
+    const project = await projectService.create(input);
+    createdProjectIds.push(project.id);
+
+    await projectService.update(project.id, {
+      ...input,
+      invoiceNumberFormat: "{abbreviation}-{year}/{month:MMM}{number:month}",
+    });
+    let stored = await prisma.project.findUniqueOrThrow({
+      where: { id: project.id },
+    });
+    expect(stored.previousInvoiceNumberFormats).toEqual([
+      "{abbreviation}-{number}",
+    ]);
+
+    // Same format again: nothing new is appended, the list is kept as submitted.
+    await projectService.update(project.id, {
+      ...input,
+      invoiceNumberFormat: "{abbreviation}-{year}/{month:MMM}{number:month}",
+      previousInvoiceNumberFormats: "{abbreviation}-{number}",
+    });
+    stored = await prisma.project.findUniqueOrThrow({
+      where: { id: project.id },
+    });
+    expect(stored.previousInvoiceNumberFormats).toEqual([
+      "{abbreviation}-{number}",
+    ]);
+
+    // A second change prepends the newest outgoing format.
+    await projectService.update(project.id, {
+      ...input,
+      invoiceNumberFormat: "{abbreviation}-{number:year}",
+      previousInvoiceNumberFormats: "{abbreviation}-{number}",
+    });
+    stored = await prisma.project.findUniqueOrThrow({
+      where: { id: project.id },
+    });
+    expect(stored.previousInvoiceNumberFormats).toEqual([
+      "{abbreviation}-{year}/{month:MMM}{number:month}",
+      "{abbreviation}-{number}",
+    ]);
+  });
+
   it("deletes a project with zero invoices", async () => {
     const contractor = await createTestParty("[test] Delete Contractor");
     const client = await createTestParty("[test] Delete Client");

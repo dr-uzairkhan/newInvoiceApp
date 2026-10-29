@@ -18,6 +18,14 @@ export const projectSchema = z.object({
     .string()
     .trim()
     .min(1, "Invoice number format is required"),
+  /**
+   * Formats the project used before the current one, one per line (or
+   * comma-separated) — kept as free text at this layer so the form can bind
+   * a plain textarea; projectService splits/dedupes it into
+   * `Project.previousInvoiceNumberFormats` and auto-appends the outgoing
+   * format whenever `invoiceNumberFormat` changes.
+   */
+  previousInvoiceNumberFormats: z.string().optional().or(z.literal("")),
   invoicePeriodType: z
     .enum(["WEEKLY", "SEMI_MONTHLY", "MONTHLY"])
     .optional()

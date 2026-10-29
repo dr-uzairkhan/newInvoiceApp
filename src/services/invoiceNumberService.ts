@@ -2,75 +2,112 @@ import { deriveAbbreviation } from "@/services/projectService";
 import {
   INVOICE_NUMBER_TOKEN_PATTERN as TOKEN_PATTERN,
   applyInvoiceNumberTokens,
+  getNumberScope,
 } from "@/lib/invoiceNumberFormat";
 
 /**
- * Invoice number generation. Supported tokens:
- * `{abbreviation}`, `{number}`, `{date}` (or `{date:MM-DD-YYYY}` /
- * `{date:DD-MM-YYYY}` / `{date:MM/DD/YYYY}` / `{date:DD/MM/YYYY}` to pick
- * the date format inline — there is no separate Project.dateFormat column,
- * so the format string itself is the one place this is configured,
- * consistent with the docs' own format examples), `{year}` (standalone
- * 4-digit year, independent of `{date}`, for formats like
- * `{abbreviation}-{year}-{number}` that don't want a full date embedded),
- * `{year_short}` (the same year, last 2 digits only — `26` not `2026`),
- * `{month}` (current month, zero-padded 2 digits), and `{day}` (current
- * day-of-month, zero-padded 2 digits) — the latter three exist so a format
- * can build its own date-like shape token-by-token without pulling in
- * `{date}`'s fixed ordering/separator. The token grammar and substitution
- * logic live in `src/lib/invoiceNumberFormat.ts`, shared with the format
- * field's discoverability popover so the two can't drift apart.
+ * Invoice number generation. The token grammar (`{abbreviation}`,
+ * `{number}` / `{number:month}` / `{number:year}`, `{year}`, `{year_short}`,
+ * `{month}` / `{month:MMM|Mmm|MMMM}`, `{day}`, `{date[:shape]}`) and the
+ * substitution logic live in `src/lib/invoiceNumberFormat.ts`, shared with
+ * the format field's discoverability popover so the two can't drift apart.
+ *
+ * The sequence is recovered from the project's existing numbers rather than
+ * a counter column (`Docs/implementation_decisions.md` §9): every existing
+ * number is parsed against the *current* format, and the next `{number}` is
+ * max(parsed) + 1. A number that fits a previous format of the project
+ * (`Project.previousInvoiceNumberFormats`) is recognised as history but is
+ * never counted — a format change restarts the sequence by design. With
+ * `{number:month}` / `{number:year}` only invoices whose issue date falls in
+ * the same calendar month / year as the one being numbered are counted.
  */
+
+/** What the sequence computation needs per existing invoice. */
+export type ExistingInvoiceNumber = {
+  invoiceNumber: string;
+  issueDate: Date;
+};
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 /**
- * Builds a regex that extracts the `{number}` token's value out of a
- * previously-generated invoice number string, treating every other token as
- * a non-greedy wildcard. Used to recover the numeric sequence even though
- * the schema has no dedicated sequence column (
- * "computes next {number} as max(existing sequence) + 1").
+ * Builds a regex that matches a number generated from `format`, capturing
+ * the `{number}` token's value (any scope) and treating every other token as
+ * a non-greedy wildcard.
  */
-function buildSequenceExtractionRegex(format: string): RegExp {
+function buildFormatRegex(format: string): RegExp {
   let pattern = "";
   let lastIndex = 0;
   for (const match of format.matchAll(TOKEN_PATTERN)) {
     pattern += escapeRegExp(format.slice(lastIndex, match.index));
-    pattern += match[0].startsWith("{number}") ? "(\\d+)" : ".*?";
+    pattern += match[0].startsWith("{number") ? "(\\d+)" : ".*?";
     lastIndex = match.index! + match[0].length;
   }
   pattern += escapeRegExp(format.slice(lastIndex));
   return new RegExp(`^${pattern}$`);
 }
 
+/** Structural fit only — true when `invoiceNumber` could have been generated from `format`. */
+export function fitsFormat(invoiceNumber: string, format: string): boolean {
+  return buildFormatRegex(format).test(invoiceNumber);
+}
+
+/** True when the number fits any of the given formats (a project's current one plus its previous ones). */
+export function fitsAnyFormat(
+  invoiceNumber: string,
+  formats: readonly string[],
+): boolean {
+  return formats.some((format) => fitsFormat(invoiceNumber, format));
+}
+
 /**
- * Exported for invoiceService's create-form format-mismatch warning — a
- * `null` result means `invoiceNumber` doesn't structurally fit `format` at
- * all (e.g. the project's format changed since it was issued), the same
- * condition that makes `nextSequence` unable to continue off of it below.
+ * The `{number}` value parsed out of `invoiceNumber` against `format`, or
+ * `null` when the number doesn't structurally fit it at all (e.g. the
+ * format changed since it was issued, or it was typed by hand).
  */
 export function extractSequence(
   invoiceNumber: string,
   format: string,
 ): number | null {
-  const match = invoiceNumber.match(buildSequenceExtractionRegex(format));
+  const match = invoiceNumber.match(buildFormatRegex(format));
   if (!match || match[1] === undefined) return null;
   const parsed = Number.parseInt(match[1], 10);
   return Number.isNaN(parsed) ? null : parsed;
 }
 
+function sameUtcMonth(a: Date, b: Date): boolean {
+  return (
+    a.getUTCFullYear() === b.getUTCFullYear() &&
+    a.getUTCMonth() === b.getUTCMonth()
+  );
+}
+
+function sameUtcYear(a: Date, b: Date): boolean {
+  return a.getUTCFullYear() === b.getUTCFullYear();
+}
+
 /**
  * Next sequence is max(existing sequence) + 1, never a row count — so a
- * deleted invoice's number is never reissued, per
+ * deleted invoice's number is never reissued. Existing invoices are scoped
+ * by *their own issue dates* (not by re-parsing month text out of their
+ * numbers) when the format resets monthly/yearly, so two Octobers a year
+ * apart never share a sequence even if the format has no year in it.
  */
 export function nextSequence(
-  existingInvoiceNumbers: string[],
+  existing: readonly ExistingInvoiceNumber[],
   format: string,
+  issueDate: Date,
 ): number {
-  const sequences = existingInvoiceNumbers
-    .map((invoiceNumber) => extractSequence(invoiceNumber, format))
+  const scope = getNumberScope(format);
+  const inScope = existing.filter((row) => {
+    if (scope === "month") return sameUtcMonth(row.issueDate, issueDate);
+    if (scope === "year") return sameUtcYear(row.issueDate, issueDate);
+    return true;
+  });
+  const sequences = inScope
+    .map((row) => extractSequence(row.invoiceNumber, format))
     .filter((value): value is number => value !== null);
   return sequences.length === 0 ? 1 : Math.max(...sequences) + 1;
 }
@@ -81,8 +118,9 @@ export type GenerateInvoiceNumberInput = {
     name: string;
     invoiceNumberFormat: string;
   };
-  existingInvoiceNumbers: string[];
-  now?: Date;
+  existingInvoices: readonly ExistingInvoiceNumber[];
+  /** The invoice's issue date — drives every date token and the month/year sequence scope. Defaults to today. */
+  issueDate?: Date;
 };
 
 /** Zero-padded to 2 digits by default, mirroring the reference script's `.zfill(2)`. */
@@ -92,20 +130,20 @@ function padSequence(sequence: number): string {
 
 export function generateInvoiceNumber({
   project,
-  existingInvoiceNumbers,
-  now = new Date(),
+  existingInvoices,
+  issueDate = new Date(),
 }: GenerateInvoiceNumberInput): string {
   const abbreviation =
     project.abbreviation && project.abbreviation.length > 0
       ? project.abbreviation
       : deriveAbbreviation(project.name);
   const paddedNumber = padSequence(
-    nextSequence(existingInvoiceNumbers, project.invoiceNumberFormat),
+    nextSequence(existingInvoices, project.invoiceNumberFormat, issueDate),
   );
 
   return applyInvoiceNumberTokens(project.invoiceNumberFormat, {
     abbreviation,
     number: paddedNumber,
-    now,
+    date: issueDate,
   });
 }

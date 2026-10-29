@@ -303,3 +303,30 @@ describe("documentService.assembleInvoiceDocumentData", () => {
     paymentMethodSpy.mockRestore();
   });
 });
+
+describe("documentService.assembleInvoiceDocumentData — period line", () => {
+  it("derives the period sentence from periodStart/periodEnd, independent of itemsNote", () => {
+    const data = documentService.assembleInvoiceDocumentData(
+      fakeInvoice({
+        periodStart: new Date("2026-07-01T00:00:00.000Z"),
+        periodEnd: new Date("2026-07-31T00:00:00.000Z"),
+        itemsNote: "Retainer month 4",
+      }),
+    );
+    expect(data.periodLine).toBe("Covers services rendered Jul 1, 2026 – Jul 31, 2026.");
+    expect(data.itemsNote).toBe("Retainer month 4");
+  });
+
+  it("leaves periodLine null unless both period bounds are set", () => {
+    expect(
+      documentService.assembleInvoiceDocumentData(
+        fakeInvoice({ periodStart: new Date("2026-07-01T00:00:00.000Z"), periodEnd: null }),
+      ).periodLine,
+    ).toBeNull();
+    expect(
+      documentService.assembleInvoiceDocumentData(
+        fakeInvoice({ periodStart: null, periodEnd: null }),
+      ).periodLine,
+    ).toBeNull();
+  });
+});

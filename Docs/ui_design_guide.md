@@ -129,7 +129,6 @@ Stage padding 40/16px, card padding 24px (body)/20×24px (header), row-section g
 |---|---|---|
 | Nav-shell dark surface | `#0f172a` | Sidebar/mobile topbar/bottom-tab-bar background, and every top-level list's table header row (Parties/Invoices/Projects) — reuses the `--text-primary` hex, not a new color. |
 | Nav active tint | `rgba(99,102,241,0.2)` bg / `#a5b4fc` text | Active nav item on the dark surface only. |
-| Dashboard alert-banner gradient | `linear-gradient(135deg, #1e1b4b, #312e81)` | Background of the Alert banner (§16) only — not used anywhere else. |
 
 ### Semantic (validation/alert) tokens
 
@@ -231,7 +230,7 @@ Applies to: "No parties yet" → "Create your first party"; "No payment methods"
 
 ## 14. AI Text Help
 
-AI appears only as a small, field-level affordance next to long-text fields on the **Invoice** form (never Project), per `Docs/implementation_decisions.md` §19. There is no chat panel and no persistent AI column in any layout.
+AI is limited to a small, field-level affordance next to long-text fields on the **Invoice** form (never Project), per `Docs/implementation_decisions.md` §19 — not yet shipped; the `/settings` providers page exists ahead of it. There is no chat panel and no persistent AI column in any layout.
 
 - **Behavior signal**: when a field is rewritten, it flashes briefly (`brand-light` background, the `highlighted` prop on `FormField`/`LineItemsEditor`) so the admin sees exactly what changed before saving; the form is never submitted on the admin's behalf.
 - **Absence is normal, not broken**: with no provider configured the affordance is not rendered at all — no empty state, no `alert-error`; the form never indicates anything is "missing."
@@ -290,7 +289,7 @@ The Projects page's own reorder arrows and card/table views are documented in §
 Breakpoints `640/768/1024/1280px`.
 
 - `<1024px`: the sidebar is replaced by the dark top bar + bottom tab bar (§3).
-- `<1024px`: every top-level list — **Parties, Projects, Invoices** — renders stacked cards instead of its table (§4/§9). Smaller embedded/dashboard tables (e.g. Project billing status, §16) keep horizontal scroll inside their own `overflow-x-auto` wrapper instead of switching to cards.
+- `<1024px`: every top-level list — **Parties, Projects, Invoices** — renders stacked cards instead of its table (§4/§9). Smaller embedded tables keep horizontal scroll inside their own `overflow-x-auto` wrapper instead of switching to cards.
 - `<768px`: `2fr/1fr` layouts collapse to a single column, the supporting card (where there is one) stacking below the primary panel.
 - Invoice document padding `48px → 20px` on small screens (preview context only — print/PDF output is always the fixed A4 geometry, §15).
 

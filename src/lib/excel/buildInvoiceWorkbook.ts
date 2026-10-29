@@ -176,9 +176,10 @@ export async function buildInvoiceWorkbook(
     row += 1;
   });
 
-  // ── Items note (M14/M15) — unlabeled italic line describing the items as a whole ──
-  if (data.itemsNote) {
-    ws.getCell(`A${row}`).value = data.itemsNote;
+  // ── Period line, then items note (M14/M15) — unlabeled italic lines describing the items as a whole ──
+  for (const noteText of [data.periodLine, data.itemsNote]) {
+    if (!noteText) continue;
+    ws.getCell(`A${row}`).value = noteText;
     ws.getCell(`A${row}`).font = arial({
       size: 8,
       italic: true,

@@ -16,7 +16,8 @@ import {
  * the field itself gives no indication of what it accepts, so this is the
  * only place a user can discover/build a valid format string. Each row
  * appends its token to the current value; the preview at the bottom
- * resolves the live value against today's date and a sample
+ * resolves the live value against today's date (standing in for the issue
+ * date a real invoice would use) and a sample
  * abbreviation/sequence, updating as the user builds the format up.
  */
 export function InvoiceNumberFormatHelp({
@@ -29,11 +30,17 @@ export function InvoiceNumberFormatHelp({
   abbreviation: string;
   onInsertToken: (token: string) => void;
 }) {
-  const tokens = getInvoiceNumberTokenReference();
+  // Tokens resolve against UTC calendar fields (they are issue-date based),
+  // so build "today" from the local calendar date to keep the sample honest.
+  const now = new Date();
+  const today = new Date(
+    Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()),
+  );
+  const tokens = getInvoiceNumberTokenReference(today);
   const preview = applyInvoiceNumberTokens(value, {
     abbreviation: abbreviation.trim() || "ACM",
     number: "01",
-    now: new Date(),
+    date: today,
   });
 
   return (

@@ -161,6 +161,9 @@ export function InvoiceDocument({
           )}
         </table>
 
+        {data.periodLine ? (
+          <p className={styles.itemsNote}>{data.periodLine}</p>
+        ) : null}
         {data.itemsNote ? (
           <p className={styles.itemsNote}>{data.itemsNote}</p>
         ) : null}
