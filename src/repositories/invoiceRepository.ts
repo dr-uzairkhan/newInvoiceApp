@@ -68,16 +68,14 @@ function findMany(filters?: {
   status?: InvoiceStatus;
   partyId?: string;
   /**
-   * M44 — defaults to `createdAt`/`desc` (existing behavior for every
-   * caller that doesn't pass this). `listByProject` is the only caller
-   * that requests `invoiceNumber` — sorting mixed-project results by
-   * invoice-number text would interleave unrelated numbering schemes
-   * meaninglessly, so this is deliberately not the default.
+   * Every list is in issue-date order (newest first by default), with
+   * creation time as the tiebreaker for same-day invoices. Number text is
+   * deliberately not a sort key: a project's numbering format can change
+   * over its life and may reset monthly, so number text is not a
+   * chronological proxy (`Docs/implementation_decisions.md` §29).
    */
-  orderBy?: "createdAt" | "invoiceNumber";
   orderDirection?: "asc" | "desc";
 }): Promise<InvoiceListItem[]> {
-  const orderField = filters?.orderBy ?? "createdAt";
   const orderDirection = filters?.orderDirection ?? "desc";
   return prisma.invoice.findMany({
     where: {
@@ -95,7 +93,7 @@ function findMany(filters?: {
         : {}),
     },
     include: LIST_ITEM_INCLUDE,
-    orderBy: { [orderField]: orderDirection },
+    orderBy: [{ issueDate: orderDirection }, { createdAt: orderDirection }],
   });
 }
 
@@ -334,11 +332,18 @@ function findMostRecentSentOrPaidByProject(
   });
 }
 
-/** Sourced for invoiceNumberService's per-project sequence computation. */
-function findInvoiceNumbersForProject(projectId: string): Promise<string[]> {
-  return prisma.invoice
-    .findMany({ where: { projectId }, select: { invoiceNumber: true } })
-    .then((rows) => rows.map((row) => row.invoiceNumber));
+/**
+ * Sourced for invoiceNumberService's per-project sequence computation —
+ * each number with its own issue date, so a month/year-scoped format can
+ * count only the invoices issued in the same period.
+ */
+function findInvoiceNumbersForProject(
+  projectId: string,
+): Promise<{ invoiceNumber: string; issueDate: Date }[]> {
+  return prisma.invoice.findMany({
+    where: { projectId },
+    select: { invoiceNumber: true, issueDate: true },
+  });
 }
 
 function itemsCreateInput(items: InvoiceItemWriteInput[]) {

@@ -62,6 +62,25 @@ function nullIfEmpty(value: string | undefined): string | null {
   return value && value.length > 0 ? value : null;
 }
 
+/**
+ * The form's free-text "previous formats" (one per line or comma-separated)
+ * → a deduped list that never repeats the current format.
+ */
+export function parsePreviousInvoiceNumberFormats(
+  text: string | undefined,
+  currentFormat: string,
+): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const raw of (text ?? "").split(/\r?\n|,/)) {
+    const format = raw.trim();
+    if (!format || format === currentFormat || seen.has(format)) continue;
+    seen.add(format);
+    result.push(format);
+  }
+  return result;
+}
+
 function toWriteInput(input: ProjectInput): ProjectWriteInput {
   const abbreviation =
     nullIfEmpty(input.abbreviation) ?? deriveAbbreviation(input.name);
@@ -74,6 +93,10 @@ function toWriteInput(input: ProjectInput): ProjectWriteInput {
     contractorId: input.contractorId,
     preferredPaymentMethodId: nullIfEmpty(input.preferredPaymentMethodId),
     invoiceNumberFormat: input.invoiceNumberFormat,
+    previousInvoiceNumberFormats: parsePreviousInvoiceNumberFormats(
+      input.previousInvoiceNumberFormats,
+      input.invoiceNumberFormat,
+    ),
     invoicePeriodType: nullIfEmpty(
       input.invoicePeriodType,
     ) as InvoicePeriodType | null,
@@ -219,6 +242,20 @@ async function update(id: string, input: ProjectInput): Promise<Project> {
     data.preferredPaymentMethodId,
     data.contractorId,
   );
+  // A format change never orphans the numbers issued under the old one: the
+  // outgoing format joins the recognised history automatically (most recent
+  // first), unless the admin already listed it.
+  const existing = await projectRepository.findById(id);
+  if (
+    existing &&
+    existing.invoiceNumberFormat !== data.invoiceNumberFormat &&
+    !data.previousInvoiceNumberFormats.includes(existing.invoiceNumberFormat)
+  ) {
+    data.previousInvoiceNumberFormats = [
+      existing.invoiceNumberFormat,
+      ...data.previousInvoiceNumberFormats,
+    ];
+  }
   return projectRepository.update(id, data);
 }
 

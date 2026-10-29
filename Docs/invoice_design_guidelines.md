@@ -245,7 +245,7 @@ A line item may be **Hourly** (Quantity/Rate populated, Amount computed) or **Fl
 
 ## 10. Notes below the item list
 
-This app's notes are **invoice-level**, not per-line-item — a single note applies to the item list as a whole, not to one specific row:
+This app's notes are **invoice-level**, not per-line-item — a single note applies to the item list as a whole, not to one specific row. Two lines can appear here, in this order: the billing-period sentence ("Covers services rendered {start} – {end}.", printed automatically from the invoice's structured period dates when both are set) and then the free-text items note. Both use the same treatment:
 
 - Place directly beneath the item table (above Subtotal, above the table's own end-of-block rule per §9), not beneath any individual item
 - Use 7.5–8.5 pt

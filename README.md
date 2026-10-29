@@ -23,7 +23,7 @@ _Screenshots show the bundled demo seed data._
 ## Features
 
 - **Parties** — one unified roster of people/organizations; any party can act as a contractor, a client, or both. Payment methods (bank wire, Zelle, Payoneer, custom) with fully custom ordered field lists, **encrypted at rest**.
-- **Projects** — the bridge between a contractor and a client: preferred payment method, invoice-number format (`{abbreviation}`/`{number}`/`{date}`/`{year}` placeholders), invoice period for due-date defaults, and single- or dual-currency mode.
+- **Projects** — the bridge between a contractor and a client: preferred payment method, invoice-number format (`{abbreviation}`/`{number}`/`{date}`/`{year}`/`{month:MMM}` placeholders, with month- or year-scoped sequences and a recognised history of previous formats), invoice period for due-date defaults, and single- or dual-currency mode.
 - **Invoices** — `DRAFT → SENT → PAID` lifecycle (or `→ VOID`), with party/payment details snapshotted and **permanently locked at send time** so historical invoices survive future profile edits. Hourly and flat-amount line items, invoice notes, per-project invoice numbering.
 - **Documents** — an on-screen A4 preview that is pixel-identical to the downloadable **PDF** (Puppeteer) and mirrored in the downloadable **Excel** workbook (ExcelJS). No files stored server-side; generated on demand.
 - **Currency** — a project denominates invoices entirely in one currency (`SINGLE` mode: USD/AUD/GBP/NZD/AED/PKR/SAR) or works USD-primary with a manually-entered converted total (`DUAL` mode). Dashboards never blend currencies.

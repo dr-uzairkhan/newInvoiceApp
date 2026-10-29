@@ -703,6 +703,50 @@ describe("invoiceService.previewNextInvoiceNumber", () => {
     const preview = await invoiceService.previewNextInvoiceNumber(project.id);
     expect(preview.conflictingLastInvoiceNumber).toBeNull();
   });
+
+  it("does not flag a conflict when the last SENT invoice fits one of the project's previous formats", async () => {
+    const { project } = await createTestProject({
+      previousInvoiceNumberFormats: "LEGACY-{year}-INV",
+    });
+    const invoice = await invoiceService.createDraft(
+      project.id,
+      baseInvoiceInput({ invoiceNumber: "LEGACY-2026-INV" }),
+    );
+    createdInvoiceIds.push(invoice.id);
+    await prisma.invoice.update({
+      where: { id: invoice.id },
+      data: { status: "SENT" },
+    });
+
+    const preview = await invoiceService.previewNextInvoiceNumber(project.id);
+    // Recognised as history, so no warning — and the sequence restarts
+    // under the current format by design.
+    expect(preview.conflictingLastInvoiceNumber).toBeNull();
+    expect(preview.suggested).toBe("TP-01");
+  });
+
+  it("resolves date tokens and a month-scoped sequence from the given issue date", async () => {
+    const { project } = await createTestProject({
+      invoiceNumberFormat: "{abbreviation}/{month:MMM}{number:month}",
+    });
+    const september = await invoiceService.createDraft(
+      project.id,
+      baseInvoiceInput({ invoiceNumber: "TP/SEP01", issueDate: "2026-09-03" }),
+    );
+    createdInvoiceIds.push(september.id);
+
+    const sameMonth = await invoiceService.previewNextInvoiceNumber(
+      project.id,
+      "2026-09-20",
+    );
+    expect(sameMonth.suggested).toBe("TP/SEP02");
+
+    const nextMonth = await invoiceService.previewNextInvoiceNumber(
+      project.id,
+      "2026-10-05",
+    );
+    expect(nextMonth.suggested).toBe("TP/OCT01");
+  });
 });
 
 describe("invoiceService.createDraft/updateDraft — billing period (M39)", () => {
@@ -856,23 +900,25 @@ describe("invoiceService.listByProject", () => {
     expect(result).toEqual([]);
   });
 
-  it("M44: defaults to descending invoice-number order, independent of creation order", async () => {
+  it("defaults to descending issue-date order, independent of creation order and number text", async () => {
     const { project } = await createTestProject();
 
-    // Created out of number order — TP-05 first, TP-01 second — matching
-    // the real bug this milestone fixes (a backfilled/ingested invoice
-    // whose row-creation time doesn't match its natural number order).
+    // Created out of order — the newest-issued first, the oldest second —
+    // matching the real bug M44 fixed (a backfilled/ingested invoice whose
+    // row-creation time doesn't match its natural position). Number text
+    // is deliberately NOT in date order here (a previous-format number sits
+    // in the middle) to prove the sort key is the issue date.
     const five = await invoiceService.createDraft(
       project.id,
-      baseInvoiceInput({ invoiceNumber: "TP-05" }),
+      baseInvoiceInput({ invoiceNumber: "TP-05", issueDate: "2026-03-01" }),
     );
     const one = await invoiceService.createDraft(
       project.id,
-      baseInvoiceInput({ invoiceNumber: "TP-01" }),
+      baseInvoiceInput({ invoiceNumber: "TP-01", issueDate: "2026-01-01" }),
     );
     const three = await invoiceService.createDraft(
       project.id,
-      baseInvoiceInput({ invoiceNumber: "TP-03" }),
+      baseInvoiceInput({ invoiceNumber: "OLD/41", issueDate: "2026-02-01" }),
     );
     createdInvoiceIds.push(five.id, one.id, three.id);
 
@@ -880,21 +926,21 @@ describe("invoiceService.listByProject", () => {
 
     expect(result.map((invoice) => invoice.invoiceNumber)).toEqual([
       "TP-05",
-      "TP-03",
+      "OLD/41",
       "TP-01",
     ]);
   });
 
-  it("M44: sorts ascending when explicitly requested", async () => {
+  it("sorts ascending by issue date when explicitly requested", async () => {
     const { project } = await createTestProject();
 
     const five = await invoiceService.createDraft(
       project.id,
-      baseInvoiceInput({ invoiceNumber: "TP-05" }),
+      baseInvoiceInput({ invoiceNumber: "TP-05", issueDate: "2026-03-01" }),
     );
     const one = await invoiceService.createDraft(
       project.id,
-      baseInvoiceInput({ invoiceNumber: "TP-01" }),
+      baseInvoiceInput({ invoiceNumber: "TP-01", issueDate: "2026-01-01" }),
     );
     createdInvoiceIds.push(five.id, one.id);
 
@@ -1429,5 +1475,79 @@ describe("invoiceService.getAutofillDataForProject", () => {
     const credit = autofill!.items.find((i) => i.isReferralCredit)!;
     expect(credit.description).toBe("Referral Credit (Thank you!)");
     expect(credit.amount).toBe("");
+  });
+});
+
+describe("migration: strip the generated period sentence out of itemsNote", () => {
+  // The cleanup statements live in the migration itself (so production gets
+  // them via `prisma migrate deploy`); this replays exactly those statements
+  // against fixture rows in the test DB so the regexes are verified here.
+  async function runCleanupStatements() {
+    const { readdirSync, readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const dir = join(process.cwd(), "prisma", "migrations");
+    const folder = readdirSync(dir).find((name) =>
+      name.endsWith("_previous_formats_and_period_line"),
+    );
+    if (!folder) throw new Error("migration folder not found");
+    const sql = readFileSync(join(dir, folder, "migration.sql"), "utf8");
+    const statements = sql
+      .split(";")
+      .map((chunk) =>
+        chunk
+          .split("\n")
+          .filter((line) => !line.trim().startsWith("--"))
+          .join("\n")
+          .trim(),
+      )
+      .filter((statement) => statement.startsWith("UPDATE"));
+    expect(statements).toHaveLength(2);
+    for (const statement of statements) {
+      await prisma.$executeRawUnsafe(statement);
+    }
+  }
+
+  it("nulls an exact generated sentence, trims it off the front of a longer note, and leaves everything else alone", async () => {
+    const { project } = await createTestProject();
+    const withPeriod = {
+      periodStart: "2026-07-01",
+      periodEnd: "2026-07-31",
+    };
+    const sentence = "Covers services rendered Jul 1, 2026 – Jul 31, 2026.";
+
+    const exact = await invoiceService.createDraft(
+      project.id,
+      baseInvoiceInput({ invoiceNumber: "TP-01", ...withPeriod, itemsNote: sentence }),
+    );
+    const prefixed = await invoiceService.createDraft(
+      project.id,
+      baseInvoiceInput({
+        invoiceNumber: "TP-02",
+        ...withPeriod,
+        itemsNote: `${sentence}\nRetainer month 4`,
+      }),
+    );
+    const unrelated = await invoiceService.createDraft(
+      project.id,
+      baseInvoiceInput({ invoiceNumber: "TP-03", ...withPeriod, itemsNote: "Retainer month 4" }),
+    );
+    const noDates = await invoiceService.createDraft(
+      project.id,
+      baseInvoiceInput({ invoiceNumber: "TP-04", itemsNote: sentence }),
+    );
+    createdInvoiceIds.push(exact.id, prefixed.id, unrelated.id, noDates.id);
+
+    await runCleanupStatements();
+
+    const after = await prisma.invoice.findMany({
+      where: { id: { in: [exact.id, prefixed.id, unrelated.id, noDates.id] } },
+      select: { id: true, itemsNote: true },
+    });
+    const noteOf = (id: string) => after.find((row) => row.id === id)?.itemsNote;
+    expect(noteOf(exact.id)).toBeNull();
+    expect(noteOf(prefixed.id)).toBe("Retainer month 4");
+    expect(noteOf(unrelated.id)).toBe("Retainer month 4");
+    // No structured dates to print from — the hand-typed sentence must survive.
+    expect(noteOf(noDates.id)).toBe(sentence);
   });
 });

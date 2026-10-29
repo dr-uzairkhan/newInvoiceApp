@@ -9,7 +9,7 @@ import { projectRepository } from "@/repositories/projectRepository";
 import type { ProjectWithRelations } from "@/repositories/projectRepository";
 import {
   generateInvoiceNumber,
-  extractSequence,
+  fitsAnyFormat,
 } from "@/services/invoiceNumberService";
 import type { InvoiceInput } from "@/lib/validation/invoice";
 import { Prisma } from "@/generated/prisma/client";
@@ -273,11 +273,11 @@ function listByStatus(status: InvoiceStatus): Promise<InvoiceListItem[]> {
 
 /**
  * M19.3a — invoices-for-this-project section on the Project detail page.
- * M44 — ordered by `InvoiceNumber` (not `createdAt`, unlike every other
- * invoice list) since a project's own numbering sequence is the
- * meaningful order here; `sort` defaults to `desc` (newest number first,
- * matching every other list's newest-first convention) and is caller-
- * controlled so the page can offer an ascending toggle.
+ * Issue-date order like every other list (M44 originally sorted this one by
+ * number text; formats that change or reset monthly made that unreliable,
+ * see `Docs/implementation_decisions.md` §29); `sort` defaults to `desc`
+ * (newest first) and is caller-controlled so the page can offer an
+ * ascending toggle.
  */
 function listByProject(
   projectId: string,
@@ -285,7 +285,6 @@ function listByProject(
 ): Promise<InvoiceListItem[]> {
   return invoiceRepository.findMany({
     projectId,
-    orderBy: "invoiceNumber",
     orderDirection: sort,
   });
 }
@@ -415,27 +414,40 @@ function getById(id: string): Promise<InvoiceWithItems | null> {
 export type InvoiceNumberPreview = {
   suggested: string;
   /**
-   * The project's last SENT/PAID invoice number, but only when it doesn't
-   * structurally fit the project's *current* `invoiceNumberFormat` — e.g.
-   * the format was changed, or that invoice was numbered by hand outside
-   * this app. When set, `suggested` couldn't continue its sequence and
-   * restarted instead, which the create form surfaces as a warning. `null`
+   * The project's last SENT/PAID invoice number, but only when it fits
+   * neither the project's *current* `invoiceNumberFormat` nor any of its
+   * `previousInvoiceNumberFormats` — i.e. it was numbered by hand outside
+   * any format this project has declared. A number that fits a previous
+   * format is a deliberate format change, not a conflict: the sequence
+   * restarts under the new format by design and no warning is shown. `null`
    * when there's no such conflict (or no prior SENT/PAID invoice at all).
    */
   conflictingLastInvoiceNumber: string | null;
 };
 
+/** A `yyyy-mm-dd` form value as a UTC-midnight Date; today when absent or unparseable. */
+function parseIssueDate(value: string | undefined): Date {
+  if (value) {
+    const parsed = new Date(`${value}T00:00:00.000Z`);
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  }
+  return new Date();
+}
+
 /**
  * Computes the suggested invoice number shown pre-filled on the create form
  * (Story 4.1). Generation happens once, here — not inside createDraft — since
  * the number must already be visible before the admin's first save, and is a
- * plain editable field from then on.
+ * plain editable field from then on. `issueDate` (a `yyyy-mm-dd` form value)
+ * drives every date token and the month/year sequence scope; the create form
+ * re-previews through `previewInvoiceNumberAction` when it changes.
  */
 async function previewNextInvoiceNumber(
   projectId: string,
+  issueDate?: string,
 ): Promise<InvoiceNumberPreview> {
   const project = await loadProjectOrThrow(projectId);
-  const [existingInvoiceNumbers, lastSentOrPaidInvoice] = await Promise.all([
+  const [existingInvoices, lastSentOrPaidInvoice] = await Promise.all([
     invoiceRepository.findInvoiceNumbersForProject(projectId),
     invoiceRepository.findMostRecentSentOrPaidByProject(projectId),
   ]);
@@ -445,14 +457,16 @@ async function previewNextInvoiceNumber(
       name: project.name,
       invoiceNumberFormat: project.invoiceNumberFormat,
     },
-    existingInvoiceNumbers,
+    existingInvoices,
+    issueDate: parseIssueDate(issueDate),
   });
+  const recognisedFormats = [
+    project.invoiceNumberFormat,
+    ...project.previousInvoiceNumberFormats,
+  ];
   const conflictingLastInvoiceNumber =
     lastSentOrPaidInvoice &&
-    extractSequence(
-      lastSentOrPaidInvoice.invoiceNumber,
-      project.invoiceNumberFormat,
-    ) === null
+    !fitsAnyFormat(lastSentOrPaidInvoice.invoiceNumber, recognisedFormats)
       ? lastSentOrPaidInvoice.invoiceNumber
       : null;
   return { suggested, conflictingLastInvoiceNumber };

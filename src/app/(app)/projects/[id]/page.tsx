@@ -415,6 +415,8 @@ async function BillingSetupTab({
           contractorId: project.contractorId,
           preferredPaymentMethodId: project.preferredPaymentMethodId ?? "",
           invoiceNumberFormat: project.invoiceNumberFormat,
+          previousInvoiceNumberFormats:
+            project.previousInvoiceNumberFormats.join("\n"),
           invoicePeriodType: project.invoicePeriodType ?? "",
           displayCurrency: project.displayCurrency,
           status: project.status,

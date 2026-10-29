@@ -350,7 +350,7 @@ export function ProviderSettingsCard({
                     </span>
                     <span className="block text-[11px] text-muted-foreground">
                       {field.value
-                        ? "Available for AI text features"
+                        ? "Available to AI text help"
                         : "Skipped at runtime"}
                     </span>
                   </span>

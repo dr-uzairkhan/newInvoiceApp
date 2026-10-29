@@ -11,9 +11,9 @@ export type ActionResult<T> =
   | { success: false; error: string; fieldErrors?: Record<string, string[]> };
 
 /**
- * Revalidates every route, not just `/settings` — AI-assist config is read
- * server-side on 6 different form pages (Party/Payment Method/Invoice
- * create+edit), and a settings change must take effect on the very next
+ * Revalidates every route, not just `/settings` — provider config may be
+ * read server-side by any page that offers AI text help, and a settings
+ * change must take effect on the very next
  * visit to any of them, per M16's core requirement.
  */
 function revalidateEverywhere() {

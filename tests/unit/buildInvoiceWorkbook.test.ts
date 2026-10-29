@@ -53,6 +53,7 @@ function fakeData(
       },
     ],
     allItemsFlat: false,
+    periodLine: null,
     itemsNote: null,
     subtotal: "300",
     total: "300",
@@ -263,5 +264,27 @@ describe("buildInvoiceWorkbook", () => {
     expect(
       allValues.some((v) => typeof v === "string" && v.includes("500")),
     ).toBe(true);
+  });
+});
+
+describe("buildInvoiceWorkbook — period line", () => {
+  it("writes the period sentence on its own row directly above the items note", async () => {
+    const buffer = await buildInvoiceWorkbook(
+      fakeData({
+        periodLine: "Covers services rendered Jul 1, 2026 – Jul 31, 2026.",
+        itemsNote: "Retainer month 4",
+      }),
+    );
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buffer as unknown as ArrayBuffer);
+    const ws = wb.getWorksheet("Invoice")!;
+    const values: string[] = [];
+    ws.eachRow((row) => {
+      const first = row.getCell("A").value;
+      if (typeof first === "string") values.push(first);
+    });
+    const periodIndex = values.indexOf("Covers services rendered Jul 1, 2026 – Jul 31, 2026.");
+    expect(periodIndex).toBeGreaterThan(-1);
+    expect(values[periodIndex + 1]).toBe("Retainer month 4");
   });
 });

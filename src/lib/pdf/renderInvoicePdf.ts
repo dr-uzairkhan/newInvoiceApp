@@ -426,8 +426,10 @@ export async function renderInvoicePdf(
   }
   writer.y += SPACE_1;
 
-  if (data.itemsNote) {
-    const noteLines = wrapText(data.itemsNote, fonts.italic, 8, CONTENT_WIDTH);
+  // Period line + items note: same italic 8pt treatment, period first (mirrors InvoiceDocument.tsx / buildInvoiceWorkbook.ts).
+  for (const noteText of [data.periodLine, data.itemsNote]) {
+    if (!noteText) continue;
+    const noteLines = wrapText(noteText, fonts.italic, 8, CONTENT_WIDTH);
     ensureSpace(writer, noteLines.length * (8 * 1.3) + SPACE_2);
     drawWrapped(writer, noteLines, {
       x: MARGIN,

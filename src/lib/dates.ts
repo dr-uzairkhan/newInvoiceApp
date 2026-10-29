@@ -4,7 +4,8 @@
  * Project.dateFormat schema column — instead, the format is chosen inline
  * in the invoiceNumberFormat string itself via `{date:MM-DD-YYYY}` /
  * `{date:DD-MM-YYYY}` / `{date:MM/DD/YYYY}` / `{date:DD/MM/YYYY}`,
- * defaulting to MM-DD-YYYY for a bare `{date}`.
+ * defaulting to MM-DD-YYYY for a bare `{date}`. Resolved from UTC calendar
+ * fields: the date is an invoice issue date (UTC midnight), never a wall clock.
  */
 export type InvoiceDateFormat =
   "MM-DD-YYYY" | "DD-MM-YYYY" | "MM/DD/YYYY" | "DD/MM/YYYY";
@@ -13,9 +14,9 @@ export function formatDateToken(
   date: Date,
   format: InvoiceDateFormat = "MM-DD-YYYY",
 ): string {
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const dd = String(date.getDate()).padStart(2, "0");
-  const yyyy = String(date.getFullYear());
+  const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(date.getUTCDate()).padStart(2, "0");
+  const yyyy = String(date.getUTCFullYear());
   const separator = format.includes("/") ? "/" : "-";
   const parts = format.startsWith("DD") ? [dd, mm, yyyy] : [mm, dd, yyyy];
   return parts.join(separator);

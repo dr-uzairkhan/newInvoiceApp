@@ -3,8 +3,7 @@ import { z } from "zod";
 /**
  * M29 — a day-of-month reminder for a Project. Flat schema, no
  * .partial()/superRefine() split: unlike invoice.ts's item schemas, this
- * entity has no AI-assist suggestion variant to compose with (AI-assist
- * never touches Project).
+ * entity has no partial variant to compose with.
  */
 export const projectAlertScheduleSchema = z.object({
   dayOfMonth: z

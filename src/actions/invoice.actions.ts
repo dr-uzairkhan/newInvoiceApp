@@ -11,6 +11,7 @@ import {
   InvoiceSendValidationError,
 } from "@/services/invoiceService";
 import { invoiceSchema } from "@/lib/validation/invoice";
+import type { InvoiceNumberPreview } from "@/services/invoiceService";
 import type { InvoiceStatus } from "@/generated/prisma/client";
 import { requireSession } from "@/lib/authz";
 
@@ -123,6 +124,30 @@ export async function deleteInvoiceAction(
     await invoiceService.delete(id);
     revalidatePath("/invoices");
     return { success: true, data: { id } };
+  } catch (error) {
+    return { success: false, error: friendlyErrorMessage(error) };
+  }
+}
+
+/**
+ * Create form's live re-preview: the number pre-filled at page load was
+ * computed for today's date, so when the admin changes the issue date
+ * before touching the number, it is recomputed for that date — date tokens
+ * and a month/year-scoped `{number}` both depend on it.
+ */
+export async function previewInvoiceNumberAction(
+  projectId: string,
+  issueDate: string,
+): Promise<ActionResult<InvoiceNumberPreview>> {
+  const check = await requireSession();
+  if (!check.ok) return { success: false, error: check.error };
+
+  try {
+    const preview = await invoiceService.previewNextInvoiceNumber(
+      projectId,
+      issueDate,
+    );
+    return { success: true, data: preview };
   } catch (error) {
     return { success: false, error: friendlyErrorMessage(error) };
   }
