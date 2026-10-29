@@ -74,7 +74,9 @@ function findFireableAcrossActiveProjects(): Promise<
 > {
   return prisma.projectAlertSchedule.findMany({
     where: {
-      project: { status: "ACTIVE" },
+      // §33 — internal projects never surface on the dashboard, so their
+      // (rare) schedules are excluded here too.
+      project: { status: "ACTIVE", ledger: "CLIENT" },
       OR: [{ recurring: true }, { clearedAt: null }],
     },
     include: { project: { select: { id: true, name: true } } },

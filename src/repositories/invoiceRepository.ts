@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { startOfTodayUTC } from "@/lib/dates";
 import { Prisma } from "@/generated/prisma/client";
 import type {
+  ProjectLedger,
   DisplayCurrency,
   Invoice,
   InvoiceItem,
@@ -63,10 +64,23 @@ const LIST_ITEM_INCLUDE = {
   },
 } satisfies Prisma.InvoiceInclude;
 
+/**
+ * §33 — cross-project lists and aggregates are scoped to one ledger via the
+ * owning project, `CLIENT` by default, so a caller that never heard of
+ * ledgers excludes internal invoices by construction. Per-invoice and
+ * per-project lookups (`findById`, `findInvoiceNumbersForProject`, …) are
+ * deliberately unscoped.
+ */
+function ledgerWhere(ledger: ProjectLedger = "CLIENT") {
+  return { project: { ledger } };
+}
+
 function findMany(filters?: {
   projectId?: string;
   status?: InvoiceStatus;
   partyId?: string;
+  /** Defaults to `CLIENT`; ignored when `projectId` is given (a project has exactly one ledger). */
+  ledger?: ProjectLedger;
   /**
    * Every list is in issue-date order (newest first by default), with
    * creation time as the tiebreaker for same-day invoices. Number text is
@@ -81,16 +95,17 @@ function findMany(filters?: {
     where: {
       ...(filters?.projectId ? { projectId: filters.projectId } : {}),
       ...(filters?.status ? { status: filters.status } : {}),
-      ...(filters?.partyId
-        ? {
-            project: {
+      project: {
+        ...(filters?.projectId ? {} : { ledger: filters?.ledger ?? "CLIENT" }),
+        ...(filters?.partyId
+          ? {
               OR: [
                 { clientId: filters.partyId },
                 { contractorId: filters.partyId },
               ],
-            },
-          }
-        : {}),
+            }
+          : {}),
+      },
     },
     include: LIST_ITEM_INCLUDE,
     orderBy: [{ issueDate: orderDirection }, { createdAt: orderDirection }],
@@ -98,8 +113,11 @@ function findMany(filters?: {
 }
 
 /** Dashboard (M10) — stats row counts, excluding VOID by construction (callers pass DRAFT/SENT). */
-function countByStatus(status: InvoiceStatus): Promise<number> {
-  return prisma.invoice.count({ where: { status } });
+function countByStatus(
+  status: InvoiceStatus,
+  ledger?: ProjectLedger,
+): Promise<number> {
+  return prisma.invoice.count({ where: { status, ...ledgerWhere(ledger) } });
 }
 
 /** Party detail page's tab badge — avoids fetching+joining the full list just to count it. */
@@ -107,6 +125,7 @@ function countByParty(partyId: string): Promise<number> {
   return prisma.invoice.count({
     where: {
       project: {
+        ledger: "CLIENT",
         OR: [{ clientId: partyId }, { contractorId: partyId }],
       },
     },
@@ -124,9 +143,10 @@ function countByParty(partyId: string): Promise<number> {
  */
 async function sumSubtotalByStatus(
   status: InvoiceStatus,
+  ledger?: ProjectLedger,
 ): Promise<Prisma.Decimal> {
   const result = await prisma.invoice.aggregate({
-    where: { status, currency: "USD" },
+    where: { status, currency: "USD", ...ledgerWhere(ledger) },
     _sum: { subtotal: true },
   });
   return result._sum.subtotal ?? new Prisma.Decimal(0);
@@ -140,10 +160,11 @@ async function sumSubtotalByStatus(
  */
 async function sumSubtotalByStatusGroupedByNonUsdCurrency(
   status: InvoiceStatus,
+  ledger?: ProjectLedger,
 ): Promise<{ currency: string; total: Prisma.Decimal }[]> {
   const rows = await prisma.invoice.groupBy({
     by: ["currency"],
-    where: { status, currency: { not: "USD" } },
+    where: { status, currency: { not: "USD" }, ...ledgerWhere(ledger) },
     _sum: { subtotal: true },
   });
   return rows.map((row) => ({
@@ -153,9 +174,15 @@ async function sumSubtotalByStatusGroupedByNonUsdCurrency(
 }
 
 /** Dashboard (M10) — Needs Attention's overdue set: SENT + past-due, most overdue first. */
-function findOverdueCandidates(): Promise<InvoiceListItem[]> {
+function findOverdueCandidates(
+  ledger?: ProjectLedger,
+): Promise<InvoiceListItem[]> {
   return prisma.invoice.findMany({
-    where: { status: "SENT", dueDate: { lt: startOfTodayUTC() } },
+    where: {
+      status: "SENT",
+      dueDate: { lt: startOfTodayUTC() },
+      ...ledgerWhere(ledger),
+    },
     include: LIST_ITEM_INCLUDE,
     orderBy: { dueDate: "asc" },
   });
@@ -166,9 +193,16 @@ function findOverdueCandidates(): Promise<InvoiceListItem[]> {
  * than the stale-draft cutoff (`src/lib/dashboardTrend.ts`'s
  * `STALE_DRAFT_DAYS`), oldest/most-stale first.
  */
-function findStaleDrafts(cutoff: Date): Promise<InvoiceListItem[]> {
+function findStaleDrafts(
+  cutoff: Date,
+  ledger?: ProjectLedger,
+): Promise<InvoiceListItem[]> {
   return prisma.invoice.findMany({
-    where: { status: "DRAFT", createdAt: { lte: cutoff } },
+    where: {
+      status: "DRAFT",
+      createdAt: { lte: cutoff },
+      ...ledgerWhere(ledger),
+    },
     include: LIST_ITEM_INCLUDE,
     orderBy: { createdAt: "asc" },
   });
@@ -179,11 +213,15 @@ function findStaleDrafts(cutoff: Date): Promise<InvoiceListItem[]> {
  * ending at `cutoff` but not yet overdue (`dueDate >= today`), soonest-due
  * first. Mirrors findOverdueCandidates/findStaleDrafts's shape.
  */
-function findDueSoon(cutoff: Date): Promise<InvoiceListItem[]> {
+function findDueSoon(
+  cutoff: Date,
+  ledger?: ProjectLedger,
+): Promise<InvoiceListItem[]> {
   return prisma.invoice.findMany({
     where: {
       status: "SENT",
       dueDate: { gte: startOfTodayUTC(), lte: cutoff },
+      ...ledgerWhere(ledger),
     },
     include: LIST_ITEM_INCLUDE,
     orderBy: { dueDate: "asc" },
@@ -199,9 +237,10 @@ function findDueSoon(cutoff: Date): Promise<InvoiceListItem[]> {
 function findByStatusSince(
   status: InvoiceStatus,
   since: Date,
+  ledger?: ProjectLedger,
 ): Promise<InvoiceListItem[]> {
   return prisma.invoice.findMany({
-    where: { status, updatedAt: { gte: since } },
+    where: { status, updatedAt: { gte: since }, ...ledgerWhere(ledger) },
     include: LIST_ITEM_INCLUDE,
     orderBy: { updatedAt: "desc" },
   });
@@ -223,7 +262,7 @@ function findRecentByStatuses(
   return prisma.invoice.findMany({
     where: {
       status: { in: statuses },
-      ...(projectId ? { projectId } : {}),
+      ...(projectId ? { projectId } : ledgerWhere()),
     },
     include: LIST_ITEM_INCLUDE,
     orderBy: { updatedAt: "desc" },
@@ -241,7 +280,7 @@ function findCreatedByStatusSince(
   since: Date,
 ): Promise<{ createdAt: Date }[]> {
   return prisma.invoice.findMany({
-    where: { status, createdAt: { gte: since } },
+    where: { status, createdAt: { gte: since }, ...ledgerWhere() },
     select: { createdAt: true },
   });
 }
@@ -261,7 +300,7 @@ function findUpdatedByStatusSince(
   since: Date,
 ): Promise<{ updatedAt: Date }[]> {
   return prisma.invoice.findMany({
-    where: { status, updatedAt: { gte: since } },
+    where: { status, updatedAt: { gte: since }, ...ledgerWhere() },
     select: { updatedAt: true },
   });
 }
@@ -277,7 +316,11 @@ function findResolvedSince(
   since: Date,
 ): Promise<{ dueDate: Date; updatedAt: Date }[]> {
   return prisma.invoice.findMany({
-    where: { status: { in: ["PAID", "VOID"] }, updatedAt: { gte: since } },
+    where: {
+      status: { in: ["PAID", "VOID"] },
+      updatedAt: { gte: since },
+      ...ledgerWhere(),
+    },
     select: { dueDate: true, updatedAt: true },
   });
 }

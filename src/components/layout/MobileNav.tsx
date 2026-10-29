@@ -37,6 +37,13 @@ export function MobileTopBar() {
   );
 }
 
+/** One literal class per possible nav length so Tailwind's scanner sees them all. */
+const TAB_BAR_COLUMNS: Record<number, string> = {
+  4: "grid-cols-4",
+  5: "grid-cols-5",
+  6: "grid-cols-6",
+};
+
 export function MobileTabBar({ role }: { role: Role }) {
   const pathname = usePathname();
   const navItems = getNavItems(role);
@@ -45,7 +52,7 @@ export function MobileTabBar({ role }: { role: Role }) {
     <nav
       className={cn(
         "fixed inset-x-0 bottom-0 z-40 grid bg-nav px-1 pt-1.5 pb-2.5 lg:hidden",
-        navItems.length === 5 ? "grid-cols-5" : "grid-cols-4",
+        TAB_BAR_COLUMNS[navItems.length] ?? "grid-cols-5",
       )}
     >
       {navItems.map((item) => {

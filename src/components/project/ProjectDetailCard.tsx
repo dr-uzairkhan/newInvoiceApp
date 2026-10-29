@@ -115,6 +115,10 @@ export function ProjectDetailCard({
           value={CURRENCY_LABELS[project.displayCurrency]}
         />
         <DetailField label="Status" value={STATUS_LABELS[project.status]} />
+        <DetailField
+          label="Ledger"
+          value={project.ledger === "INTERNAL" ? "Internal" : "Client"}
+        />
       </CardContent>
     </Card>
   );

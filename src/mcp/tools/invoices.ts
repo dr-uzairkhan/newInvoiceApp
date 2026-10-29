@@ -128,23 +128,24 @@ export const listInvoices = defineTool({
   name: "list_invoices",
   title: "List invoices",
   description:
-    "Lists invoices newest first by issue date. Filter by status, project, party (as client or contractor) and/or overdue (SENT and past due date). Filters combine.",
+    "Lists invoices newest first by issue date. Filter by status, project, party (as client or contractor) and/or overdue (SENT and past due date). ledger defaults to CLIENT; pass INTERNAL for internal projects' invoices (ignored when projectId is given). Filters combine.",
   inputSchema: {
     status: statusSchema.optional(),
     projectId: idSchema.optional(),
     partyId: idSchema.optional(),
     overdue: z.boolean().optional(),
+    ledger: z.enum(["CLIENT", "INTERNAL"]).optional(),
   },
   scope: "READ",
   annotations: { readOnlyHint: true },
-  handler: async ({ status, projectId, partyId, overdue }) => {
+  handler: async ({ status, projectId, partyId, overdue, ledger }) => {
     let invoices: InvoiceListItem[] = projectId
       ? await invoiceService.listByProject(projectId)
       : partyId
-        ? await invoiceService.listByParty(partyId)
+        ? await invoiceService.listByParty(partyId, { ledger })
         : status
-          ? await invoiceService.listByStatus(status)
-          : await invoiceService.list();
+          ? await invoiceService.listByStatus(status, { ledger })
+          : await invoiceService.list({ ledger });
     if (status) invoices = invoices.filter((invoice) => invoice.status === status);
     if (projectId && partyId) {
       invoices = invoices.filter(

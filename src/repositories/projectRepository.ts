@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type {
+  ProjectLedger,
   Party,
   PaymentMethod,
   Project,
@@ -38,11 +39,25 @@ export type ProjectWithRelations = Project & {
   preferredPaymentMethod: PaymentMethod | null;
 };
 
+/**
+ * §33 — every list and aggregate here is scoped to one ledger, `CLIENT` by
+ * default, so a call site that never heard of ledgers excludes internal
+ * projects by construction. `findById` is deliberately unscoped (a direct
+ * link to an internal project must still open).
+ */
+function ledgerWhere(ledger: ProjectLedger = "CLIENT") {
+  return { ledger };
+}
+
 function findMany(filters?: {
   status?: ProjectStatus;
+  ledger?: ProjectLedger;
 }): Promise<ProjectWithRelations[]> {
   return prisma.project.findMany({
-    where: filters?.status ? { status: filters.status } : undefined,
+    where: {
+      ...ledgerWhere(filters?.ledger),
+      ...(filters?.status ? { status: filters.status } : {}),
+    },
     include: { client: true, contractor: true, preferredPaymentMethod: true },
     orderBy: { sortOrder: "asc" },
   });
@@ -65,9 +80,10 @@ function create(
   data: ProjectWriteInput,
   createdByUserId: string | null,
   sortOrder: number,
+  ledger: ProjectLedger,
 ): Promise<Project> {
   return prisma.project.create({
-    data: { ...data, createdByUserId, sortOrder },
+    data: { ...data, createdByUserId, sortOrder, ledger },
   });
 }
 
@@ -90,9 +106,11 @@ async function findMaxSortOrder(): Promise<number | null> {
 function findAdjacentActive(
   sortOrder: number,
   direction: "up" | "down",
+  ledger: ProjectLedger,
 ): Promise<Project | null> {
   return prisma.project.findFirst({
     where: {
+      ...ledgerWhere(ledger),
       status: "ACTIVE",
       sortOrder: direction === "up" ? { lt: sortOrder } : { gt: sortOrder },
     },
@@ -138,22 +156,34 @@ function countInvoices(projectId: string): Promise<number> {
  * Scoped to ACTIVE only: an ARCHIVED project isn't issuing new invoices, so
  * flagging it as needing attention would just be noise on the dashboard.
  */
-function findMissingPreferredPaymentMethod(): Promise<ProjectWithRelations[]> {
+function findMissingPreferredPaymentMethod(
+  ledger?: ProjectLedger,
+): Promise<ProjectWithRelations[]> {
   return prisma.project.findMany({
-    where: { preferredPaymentMethodId: null, status: "ACTIVE" },
+    where: {
+      ...ledgerWhere(ledger),
+      preferredPaymentMethodId: null,
+      status: "ACTIVE",
+    },
     include: { client: true, contractor: true, preferredPaymentMethod: true },
     orderBy: { name: "asc" },
   });
 }
 
 /** Dashboard (M10) — Active Projects stat. */
-function countActive(): Promise<number> {
-  return prisma.project.count({ where: { status: "ACTIVE" } });
+function countActive(ledger?: ProjectLedger): Promise<number> {
+  return prisma.project.count({
+    where: { ...ledgerWhere(ledger), status: "ACTIVE" },
+  });
 }
 
 /** Dashboard (M10) — Recent Activity's "project created" events. */
-function findRecentlyCreated(limit: number): Promise<ProjectWithRelations[]> {
+function findRecentlyCreated(
+  limit: number,
+  ledger?: ProjectLedger,
+): Promise<ProjectWithRelations[]> {
   return prisma.project.findMany({
+    where: ledgerWhere(ledger),
     include: { client: true, contractor: true, preferredPaymentMethod: true },
     orderBy: { createdAt: "desc" },
     take: limit,
@@ -175,6 +205,7 @@ function findByPreferredPaymentMethodIds(
   if (paymentMethodIds.length === 0) return Promise.resolve([]);
   return prisma.project.findMany({
     where: {
+      ...ledgerWhere(),
       preferredPaymentMethodId: { in: paymentMethodIds },
       status: "ACTIVE",
     },
@@ -190,7 +221,7 @@ function findByPreferredPaymentMethodIds(
  */
 function findActiveCreatedSince(since: Date): Promise<{ createdAt: Date }[]> {
   return prisma.project.findMany({
-    where: { status: "ACTIVE", createdAt: { gte: since } },
+    where: { ...ledgerWhere(), status: "ACTIVE", createdAt: { gte: since } },
     select: { createdAt: true },
   });
 }
@@ -202,7 +233,7 @@ function findActiveCreatedSince(since: Date): Promise<{ createdAt: Date }[]> {
  */
 function findArchivedSince(since: Date): Promise<{ updatedAt: Date }[]> {
   return prisma.project.findMany({
-    where: { status: "ARCHIVED", updatedAt: { gte: since } },
+    where: { ...ledgerWhere(), status: "ARCHIVED", updatedAt: { gte: since } },
     select: { updatedAt: true },
   });
 }

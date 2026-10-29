@@ -22,10 +22,13 @@ export function ProjectDetailTabs({
   active,
   invoicesCount,
   returnTo,
+  internal = false,
 }: {
   projectId: string;
   active: ProjectDetailTab;
   invoicesCount: number;
+  /** §33 — an internal project has no reminder schedules, so its middle tab is just "Invoices". */
+  internal?: boolean;
   /** Carried through to each tab link so switching tabs doesn't drop the back-navigation origin — see `withReturnTo`. */
   returnTo?: string;
 }) {
@@ -53,7 +56,7 @@ export function ProjectDetailTabs({
                 : "border-transparent text-muted-foreground hover:text-foreground",
             )}
           >
-            {tab.label}
+            {tab.value === "invoices" && internal ? "Invoices" : tab.label}
             {tab.value === "invoices" && invoicesCount > 0 ? (
               <span className="rounded-full bg-brand-light px-1.5 py-0.5 text-[10px] font-bold text-brand">
                 {invoicesCount}

@@ -111,6 +111,7 @@ export function ProjectForm({
       preferredPaymentMethodId: "",
       invoiceNumberFormat: "{abbreviation}-{number}-{date}",
       previousInvoiceNumberFormats: "",
+      ledger: "CLIENT",
       invoicePeriodType: "",
       currencyMode: "SINGLE",
       displayCurrency: "USD",
@@ -183,6 +184,48 @@ export function ProjectForm({
           >
             <Input id="name" {...register("name")} />
           </FormField>
+
+          {mode === "create" ? (
+            <FormField
+              label="Ledger"
+              htmlFor="ledger"
+              required
+              error={errors.ledger?.message}
+            >
+              <Controller
+                name="ledger"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    value={field.value ?? "CLIENT"}
+                    onValueChange={field.onChange}
+                  >
+                    <SelectTrigger id="ledger" className="w-full">
+                      <SelectValue
+                        renderValue={(value) =>
+                          value === "INTERNAL"
+                            ? "Internal — on-demand invoices, kept off the main dashboard"
+                            : "Client — tracked on the dashboard and in all counts"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="CLIENT">
+                        Client — tracked on the dashboard and in all counts
+                      </SelectItem>
+                      <SelectItem value="INTERNAL">
+                        Internal — on-demand invoices, kept off the main
+                        dashboard
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Set once — a project never moves between ledgers.
+              </p>
+            </FormField>
+          ) : null}
 
           <FormField
             label="Abbreviation"
