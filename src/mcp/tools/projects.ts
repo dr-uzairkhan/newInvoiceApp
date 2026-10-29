@@ -20,6 +20,7 @@ function projectSummary(project: ProjectWithRelations) {
     abbreviation: project.abbreviation,
     serviceDescription: project.serviceDescription,
     status: project.status,
+    ledger: project.ledger,
     client: { id: project.client.id, name: project.client.name },
     contractor: { id: project.contractor.id, name: project.contractor.name },
     preferredPaymentMethod: project.preferredPaymentMethod
@@ -72,14 +73,15 @@ export const listProjects = defineTool({
   name: "list_projects",
   title: "List projects",
   description:
-    "Lists projects with their client, contractor, numbering format and currency settings. Filter by status to see only ACTIVE or ARCHIVED projects.",
+    "Lists projects with their client, contractor, numbering format and currency settings. Filter by status (ACTIVE/ARCHIVED). ledger defaults to CLIENT (what the dashboard tracks); pass INTERNAL for internal on-demand projects.",
   inputSchema: {
     status: z.enum(["ACTIVE", "ARCHIVED"]).optional(),
+    ledger: z.enum(["CLIENT", "INTERNAL"]).optional(),
   },
   scope: "READ",
   annotations: { readOnlyHint: true },
-  handler: async ({ status }) => {
-    const projects = await projectService.list(status ? { status } : undefined);
+  handler: async ({ status, ledger }) => {
+    const projects = await projectService.list({ status, ledger });
     return { projects: projects.map(projectSummary) };
   },
 });
@@ -116,7 +118,7 @@ export const createProject = defineTool({
   name: "create_project",
   title: "Create project",
   description:
-    "Creates a project linking a contractor party to a client party. The preferred payment method must belong to the contractor. invoiceNumberFormat uses tokens such as {abbreviation}, {number}, {number:month}, {year}, {month:MMM}, {date}. Optional text fields may be passed as empty strings.",
+    "Creates a project linking a contractor party to a client party. ledger: CLIENT (default, tracked on the dashboard) or INTERNAL (on-demand invoices kept off the dashboard; set once, never changed). The preferred payment method must belong to the contractor. invoiceNumberFormat uses tokens such as {abbreviation}, {number}, {number:month}, {year}, {month:MMM}, {date}. Optional text fields may be passed as empty strings.",
   inputSchema: projectFields,
   scope: "WRITE",
   roles: ROLES.writeProjects,

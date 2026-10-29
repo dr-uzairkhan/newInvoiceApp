@@ -3,6 +3,7 @@ import {
   Users,
   Briefcase,
   FileText,
+  Layers,
   Settings,
   type LucideIcon,
 } from "lucide-react";
@@ -15,6 +16,8 @@ const BASE_NAV_ITEMS: NavItem[] = [
   { href: "/projects", label: "Projects", icon: Briefcase },
   { href: "/invoices", label: "Invoices", icon: FileText },
   { href: "/parties", label: "Parties", icon: Users },
+  // §33 — the internal ledger's only surface.
+  { href: "/internal", label: "Internal", icon: Layers },
 ];
 
 const SETTINGS_NAV_ITEM: NavItem = {

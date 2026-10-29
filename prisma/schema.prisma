@@ -29,6 +29,16 @@ enum ProjectStatus {
   ARCHIVED
 }
 
+/// Which book a project belongs to (Docs/implementation_decisions.md §33).
+/// CLIENT is everything the main dashboard, lists and counts show; INTERNAL
+/// projects (on-demand invoices issued by a different party) appear only
+/// under /internal. Set once at creation, never moved. Invoices inherit it
+/// through their project.
+enum ProjectLedger {
+  CLIENT
+  INTERNAL
+}
+
 enum AiProviderName {
   google
   anthropic
@@ -160,6 +170,7 @@ model Project {
   referralCreditEnabled Boolean @default(false)
   referralCreditLabel String?
   status ProjectStatus @default(ACTIVE)
+  ledger ProjectLedger @default(CLIENT)
   /// Manual global display order (Projects page cards/table, dashboard
   /// "Project billing status" table) — reordered via up/down arrows on the
   /// dashboard, swapping values with the adjacent ACTIVE project rather than

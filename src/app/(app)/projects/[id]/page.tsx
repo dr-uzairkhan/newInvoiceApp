@@ -64,15 +64,18 @@ export default async function ProjectDetailPage({
       : tab === "setup"
         ? `/projects/${id}?tab=setup`
         : `/projects/${id}`;
-  const back = resolveBackTarget(returnTo, {
-    href: "/projects",
-    label: "Back to Projects",
-  });
-
   const project = await projectService.getById(id);
   if (!project) {
     notFound();
   }
+  // §33 — an internal project's home is /internal, never the Projects list.
+  const isInternal = project.ledger === "INTERNAL";
+  const back = resolveBackTarget(
+    returnTo,
+    isInternal
+      ? { href: "/internal", label: "Back to Internal" }
+      : { href: "/projects", label: "Back to Projects" },
+  );
 
   const [isDeletable, invoices, alertSchedules] = await Promise.all([
     projectService.isDeletable(id),
@@ -136,6 +139,7 @@ export default async function ProjectDetailPage({
         active={tab}
         invoicesCount={invoices.length}
         returnTo={returnTo}
+        internal={isInternal}
       />
 
       {tab === "overview" ? (
@@ -151,6 +155,7 @@ export default async function ProjectDetailPage({
           alertSchedules={alertSchedules}
           sort={sort}
           returnTo={returnTo}
+          showAlerts={!isInternal}
         />
       ) : (
         <BillingSetupTab
@@ -182,12 +187,13 @@ async function OverviewTab({
   // same page and re-attaches `returnTo` unchanged.
   const invoiceReturnTo = withReturnTo(`/projects/${projectId}`, returnTo);
 
-  if (project.status !== "ACTIVE") {
+  if (project.status !== "ACTIVE" || project.ledger === "INTERNAL") {
     return (
       <div className="flex flex-col gap-4">
         <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 text-[12px] text-muted-foreground">
-          This project is archived — billing health isn&rsquo;t tracked for
-          archived projects.
+          {project.ledger === "INTERNAL"
+            ? "This is an internal project — it issues on-demand invoices and is not tracked on the dashboard."
+            : "This project is archived — billing health isn't tracked for archived projects."}
         </div>
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.25fr_0.75fr]">
           <ProjectSummary project={project} returnTo={returnTo} />
@@ -251,6 +257,7 @@ async function InvoicesAndAlertsTab({
   alertSchedules,
   sort,
   returnTo,
+  showAlerts = true,
 }: {
   project: NonNullable<Awaited<ReturnType<typeof projectService.getById>>>;
   invoices: Awaited<ReturnType<typeof invoiceService.listByProject>>;
@@ -259,6 +266,8 @@ async function InvoicesAndAlertsTab({
   >;
   sort: "asc" | "desc";
   returnTo?: string;
+  /** §33 — false for an INTERNAL project: on-demand work has no reminder schedules. */
+  showAlerts?: boolean;
 }) {
   const createInvoiceHref = withReturnTo(
     `/invoices/new/${project.id}`,
@@ -318,28 +327,35 @@ async function InvoicesAndAlertsTab({
         />
       )}
 
-      <div className="mt-8 mb-3 flex items-center justify-between">
-        <div>
-          <h2 className="text-[14px] font-normal tracking-[-0.14px] text-foreground">
-            Alert Schedules
-          </h2>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">
-            Recurring reminders for this project&apos;s billing schedule.
-          </p>
-        </div>
-        {alertSchedules.length > 0 ? (
-          <AddAlertScheduleButton projectId={project.id} />
-        ) : null}
-      </div>
-      {alertSchedules.length === 0 ? (
-        <EmptyState
-          title="No alert schedules yet"
-          description="Add a day-of-month reminder for this project."
-          action={<AddAlertScheduleButton projectId={project.id} />}
-        />
-      ) : (
-        <AlertScheduleList projectId={project.id} schedules={alertSchedules} />
-      )}
+      {showAlerts ? (
+        <>
+          <div className="mt-8 mb-3 flex items-center justify-between">
+            <div>
+              <h2 className="text-[14px] font-normal tracking-[-0.14px] text-foreground">
+                Alert Schedules
+              </h2>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                Recurring reminders for this project&apos;s billing schedule.
+              </p>
+            </div>
+            {alertSchedules.length > 0 ? (
+              <AddAlertScheduleButton projectId={project.id} />
+            ) : null}
+          </div>
+          {alertSchedules.length === 0 ? (
+            <EmptyState
+              title="No alert schedules yet"
+              description="Add a day-of-month reminder for this project."
+              action={<AddAlertScheduleButton projectId={project.id} />}
+            />
+          ) : (
+            <AlertScheduleList
+              projectId={project.id}
+              schedules={alertSchedules}
+            />
+          )}
+        </>
+      ) : null}
     </>
   );
 }
@@ -420,6 +436,7 @@ async function BillingSetupTab({
           invoicePeriodType: project.invoicePeriodType ?? "",
           displayCurrency: project.displayCurrency,
           status: project.status,
+          ledger: project.ledger,
         }}
       />
     </>

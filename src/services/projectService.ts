@@ -125,6 +125,8 @@ async function assertPreferredPaymentMethodBelongsToContractor(
 
 function list(filters?: {
   status?: "ACTIVE" | "ARCHIVED";
+  /** §33 — defaults to CLIENT in the repository; pass INTERNAL for the /internal section. */
+  ledger?: "CLIENT" | "INTERNAL";
 }): Promise<ProjectWithRelations[]> {
   return projectRepository.findMany(filters);
 }
@@ -206,6 +208,7 @@ async function create(
     data,
     createdByUserId,
     (maxSortOrder ?? 0) + 1,
+    input.ledger ?? "CLIENT",
   );
 }
 
@@ -225,6 +228,7 @@ async function move(id: string, direction: "up" | "down"): Promise<void> {
   const neighbor = await projectRepository.findAdjacentActive(
     project.sortOrder,
     direction,
+    project.ledger,
   );
   if (!neighbor) return;
 

@@ -41,6 +41,12 @@ export const projectSchema = z.object({
   status: z.enum(["ACTIVE", "ARCHIVED"], {
     message: "Select a status",
   }),
+  /**
+   * §33 — which book the project belongs to. Honoured on create only
+   * (defaults to CLIENT); a project never moves between ledgers, so
+   * `projectService.update` ignores it.
+   */
+  ledger: z.enum(["CLIENT", "INTERNAL"]).optional(),
 });
 
 export type ProjectInput = z.infer<typeof projectSchema>;

@@ -17,6 +17,7 @@ import type {
   DisplayCurrency,
   Invoice,
   InvoiceStatus,
+  ProjectLedger,
 } from "@/generated/prisma/client";
 import {
   bucketCounts,
@@ -263,12 +264,18 @@ async function loadProjectOrThrow(
   return project;
 }
 
-function list(): Promise<InvoiceListItem[]> {
-  return invoiceRepository.findMany();
+/** §33 — cross-project lists default to the CLIENT ledger; the /internal section passes INTERNAL. */
+type LedgerOptions = { ledger?: ProjectLedger };
+
+function list(options?: LedgerOptions): Promise<InvoiceListItem[]> {
+  return invoiceRepository.findMany({ ledger: options?.ledger });
 }
 
-function listByStatus(status: InvoiceStatus): Promise<InvoiceListItem[]> {
-  return invoiceRepository.findMany({ status });
+function listByStatus(
+  status: InvoiceStatus,
+  options?: LedgerOptions,
+): Promise<InvoiceListItem[]> {
+  return invoiceRepository.findMany({ status, ledger: options?.ledger });
 }
 
 /**
@@ -290,8 +297,11 @@ function listByProject(
 }
 
 /** M36 — invoices-for-this-party section on the Party detail page; every invoice where this party is either the project's client or its contractor. */
-function listByParty(partyId: string): Promise<InvoiceListItem[]> {
-  return invoiceRepository.findMany({ partyId });
+function listByParty(
+  partyId: string,
+  options?: LedgerOptions,
+): Promise<InvoiceListItem[]> {
+  return invoiceRepository.findMany({ partyId, ledger: options?.ledger });
 }
 
 /** M36 — Party detail page's Invoices tab badge count, without fetching the full list. */

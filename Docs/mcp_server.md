@@ -31,7 +31,7 @@ Irreversible tools (`delete_*`, `void_invoice`) additionally require `confirm: t
 
 | Area | Read | Write | Destructive |
 | --- | --- | --- | --- |
-| Projects | `list_projects`, `get_project` | `create_project`, `update_project`, `archive_project`, `reorder_project` | `delete_project` |
+| Projects (`ledger` param on `list_projects`, defaults to CLIENT) | `list_projects`, `get_project` | `create_project`, `update_project`, `archive_project`, `reorder_project` | `delete_project` |
 | Parties | `list_parties`, `get_party` | `create_party`, `update_party` | `delete_party` |
 | Payment methods | `list_payment_methods`, `get_payment_method` | `create_payment_method`, `update_payment_method`, `set_default_payment_method` | `delete_payment_method` |
 | Invoices | `list_invoices`, `get_invoice`, `preview_next_invoice_number` | `create_draft_invoice`, `update_draft_invoice`, `mark_invoice_sent`, `mark_invoice_paid` | `void_invoice`, `delete_invoice` |
@@ -39,4 +39,4 @@ Irreversible tools (`delete_*`, `void_invoice`) additionally require `confirm: t
 | Reminder schedules | `list_alert_schedules` | `create_alert_schedule`, `update_alert_schedule`, `clear_alert_schedule` | `delete_alert_schedule` |
 | Documents | `get_invoice_pdf` | — | — |
 
-Update tools take only the fields to change; everything else keeps its current value. `create_draft_invoice` fills in the project's next invoice number when none is given, computed for the invoice's issue date. Dates are `yyyy-mm-dd`; money fields are decimal strings.
+Update tools take only the fields to change; everything else keeps its current value. `list_projects` and `list_invoices` default to the CLIENT ledger; pass `ledger: "INTERNAL"` for internal on-demand projects, and `create_project` accepts `ledger`. `create_draft_invoice` fills in the project's next invoice number when none is given, computed for the invoice's issue date. Dates are `yyyy-mm-dd`; money fields are decimal strings.
