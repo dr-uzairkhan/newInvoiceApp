@@ -16,9 +16,9 @@ function isValidDecimal(value: string, allowZero: boolean): boolean {
  * from them, never accepted from the client — Docs/product_spec.md §1.5);
  * Flat requires `amount` directly from the client instead (the one narrow,
  * deliberate exception to that rule) and leaves quantity/unitPrice blank.
- * `invoiceItemBaseSchema` is exported unrefined so aiSuggestions.ts can
- * `.partial()` it — `.partial()` doesn't compose with the `superRefine()`-
- * wrapped `invoiceItemSchema` below (a ZodEffects, not a ZodObject).
+ * `invoiceItemBaseSchema` is exported unrefined so callers can `.partial()`
+ * it — `.partial()` doesn't compose with the `superRefine()`-wrapped
+ * `invoiceItemSchema` below (a ZodEffects, not a ZodObject).
  */
 export const invoiceItemBaseSchema = z.object({
   description: z.string().trim().min(1, "Description is required"),
@@ -29,8 +29,7 @@ export const invoiceItemBaseSchema = z.object({
    * and output types stay identical — a `.default()` here would give
    * `zodResolver` an input-shaped type that no longer matches `InvoiceInput`
    * (the schema's output type), which `useForm<InvoiceInput>` requires.
-   * An AI-generated item, which never includes this key, still validates
-   * fine as `undefined` — every read site treats that the same as `false`.
+   * An item payload that omits this key still validates fine as `undefined` — every read site treats that the same as `false`.
    */
   isReferralCredit: z.boolean().optional(),
   quantity: z.string().trim(),
@@ -102,7 +101,7 @@ export const invoiceItemSchema = invoiceItemBaseSchema.superRefine(
  * `itemsNote`/`bottomNote` (M14) are both independently optional, plain
  * admin-authored content — not a snapshot of live external data.
  * `invoiceBaseSchema` is exported unrefined, same reason as
- * `invoiceItemBaseSchema` above, so aiSuggestions.ts can `.partial()` it.
+ * `invoiceItemBaseSchema` above, so callers can `.partial()` it.
  */
 export const invoiceBaseSchema = z.object({
   invoiceNumber: z.string().trim().min(1, "Invoice number is required"),
@@ -113,8 +112,8 @@ export const invoiceBaseSchema = z.object({
    * issueDate/dueDate. Both optional (a flat one-off fee has no period) and
    * independently optional of each other at this layer — the "periodEnd
    * can't be before periodStart" ordering rule is enforced by
-   * `invoiceSchema`'s `superRefine` below, not here, so `.partial()` (used
-   * by aiSuggestions.ts) stays valid.
+   * `invoiceSchema`'s `superRefine` below, not here, so `.partial()` stays
+   * valid.
    */
   periodStart: z.string().trim().optional().or(z.literal("")),
   periodEnd: z.string().trim().optional().or(z.literal("")),

@@ -8,25 +8,21 @@ import { cn } from "@/lib/utils";
 import { clearProjectAlertScheduleAction } from "@/actions/projectAlertSchedule.actions";
 
 /**
- * M29 — shared by the project detail page's alert list and the global nav
- * `AlertsBell`. No confirmation dialog: clearing is non-destructive (a
- * recurring schedule re-arms itself next month; a cleared one-time
- * schedule's config row stays visible/editable, nothing is deleted). The
- * server action revalidates every server-rendered surface, so clearing from
- * either place reflects everywhere except the bell's own client-held list —
- * `onCleared` lets a caller (the bell) drop the item locally for instant
- * feedback instead of waiting on its own next refetch.
+ * M29 — used by the project detail page's alert list. No confirmation
+ * dialog: clearing is non-destructive (a recurring schedule re-arms itself
+ * next month; a cleared one-time schedule's config row stays
+ * visible/editable, nothing is deleted). The server action revalidates every
+ * server-rendered surface that reads the fired set (project page, dashboard
+ * planner, Projects list), so one Clear reflects everywhere.
  */
 export function ClearAlertScheduleButton({
   scheduleId,
   projectId,
   className,
-  onCleared,
 }: {
   scheduleId: string;
   projectId: string;
   className?: string;
-  onCleared?: () => void;
 }) {
   const router = useRouter();
   const [isPending, setIsPending] = useState(false);
@@ -48,7 +44,6 @@ export function ClearAlertScheduleButton({
             return;
           }
           toast.success("Alert cleared");
-          onCleared?.();
           router.refresh();
         } finally {
           setIsPending(false);

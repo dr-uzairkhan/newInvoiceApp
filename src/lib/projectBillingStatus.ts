@@ -10,9 +10,10 @@ import {
 import { toDateInputValue } from "@/lib/dates";
 
 /**
- * Dashboard "Project billing status"/"Upcoming billing" widgets — pure
- * aggregation over data already fetched for other dashboard sections (all
- * invoices, active projects, fired alert schedules), rather than bespoke
+ * Per-project billing rows (Projects page views, project Overview tab, the
+ * dashboard planner's "Next billing" dates) — pure aggregation over data
+ * already fetched for those pages (all invoices, active projects, fired and
+ * live alert schedules), rather than bespoke
  * Prisma groupBys per widget. Matches the existing lightweight-aggregation
  * style (e.g. buildPriorityFeed).
  */
@@ -117,41 +118,6 @@ export const BILLING_TONE_PILL: Record<BillingStatusTone, string> = {
   upcoming: "bg-[var(--status-upcoming-bg)] text-[var(--status-upcoming-text)]",
   positive: "bg-[var(--status-paid-bg)] text-[var(--status-paid-text)]",
 };
-
-/** Dashboard "Project billing health" view (M36-adjacent) — coarser grouping for the filter chips. */
-export type HealthCategory = "needsAttention" | "upcoming" | "healthy";
-
-export function resolveHealthCategory(tone: BillingStatusTone): HealthCategory {
-  if (tone === "upcoming") return "upcoming";
-  if (tone === "positive") return "healthy";
-  return "needsAttention";
-}
-
-/**
- * Dashboard Health view — every value a project row can be filtered to,
- * whether from a `FilterChips` click (the 3 `HealthCategory` values) or a
- * `PortfolioPulseStats` card click (`dueSoon14Days`/`openExposure`, each
- * defined by the exact same predicate the stat's own count uses, so the
- * number on the card and the rows shown after clicking it never disagree).
- */
-export type DashboardHealthFilter =
-  "all" | HealthCategory | "dueSoon14Days" | "openExposure";
-
-const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
-
-/** Matches PortfolioPulseStats's "Dates in 14 days" count. */
-export function isDueWithin14Days(row: ProjectBillingRow, now: Date): boolean {
-  return (
-    row.nextInvoiceDate !== null &&
-    row.nextInvoiceDate.getTime() >= now.getTime() &&
-    row.nextInvoiceDate.getTime() <= now.getTime() + FOURTEEN_DAYS_MS
-  );
-}
-
-/** Matches PortfolioPulseStats's "Open exposure" sum — projects actually contributing to it. */
-export function hasOpenExposure(row: ProjectBillingRow): boolean {
-  return Number(row.exposureTotal) > 0;
-}
 
 export type ProjectBillingRow = {
   projectId: string;
@@ -351,50 +317,3 @@ export function buildProjectBillingRows(input: {
   });
 }
 
-export type AgeingBucket = { label: string; total: string; count: number };
-
-/**
- * Dashboard "Receivables ageing" — outstanding (SENT) invoices bucketed by
- * days past due. USD-only, same M26 convention as sumSubtotalByStatus: a
- * non-USD SINGLE-mode invoice is excluded from this blended total rather
- * than mixed in (no live FX rate to normalize with).
- */
-export function buildReceivablesAgeing(
-  sentInvoices: InvoiceListItem[],
-  now: Date = new Date(),
-): { notYetDue: AgeingBucket; dueSoon: AgeingBucket; late: AgeingBucket } {
-  const notYetDue: AgeingBucket = {
-    label: "Not yet due",
-    total: "0",
-    count: 0,
-  };
-  const dueSoon: AgeingBucket = { label: "1–30 days", total: "0", count: 0 };
-  const late: AgeingBucket = { label: "31+ days", total: "0", count: 0 };
-
-  let notYetDueSum = 0;
-  let dueSoonSum = 0;
-  let lateSum = 0;
-
-  for (const invoice of sentInvoices) {
-    if (invoice.currency !== "USD") continue;
-    const daysPastDue = Math.floor(
-      (now.getTime() - invoice.dueDate.getTime()) / (24 * 60 * 60 * 1000),
-    );
-    const amount = Number(invoice.total);
-    if (daysPastDue <= 0) {
-      notYetDueSum += amount;
-      notYetDue.count += 1;
-    } else if (daysPastDue <= 30) {
-      dueSoonSum += amount;
-      dueSoon.count += 1;
-    } else {
-      lateSum += amount;
-      late.count += 1;
-    }
-  }
-
-  notYetDue.total = notYetDueSum.toString();
-  dueSoon.total = dueSoonSum.toString();
-  late.total = lateSum.toString();
-  return { notYetDue, dueSoon, late };
-}

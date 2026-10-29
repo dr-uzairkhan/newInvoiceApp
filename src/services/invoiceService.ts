@@ -216,7 +216,7 @@ function nullIfBlank(value: string | undefined): string | null {
  * converted total does), the project's own `displayCurrency` for a `SINGLE`-
  * mode one (which may itself be USD, for a project that hasn't opted into
  * either currency feature at all). Exported so pages building
- * `InvoiceFormProjectInfo`/`InvoiceAiContext` can resolve the same value for
+ * `InvoiceFormProjectInfo` can resolve the same value for
  * display, without duplicating the ternary.
  */
 function resolveInvoiceCurrency(

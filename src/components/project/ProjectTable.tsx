@@ -34,7 +34,7 @@ function ProjectAvatar({ abbreviation }: { abbreviation: string | null }) {
   );
 }
 
-/** A fired, uncleared alert schedule exists for this project — see AlertsBell.tsx for the same data's global nav treatment. */
+/** A fired, uncleared alert schedule exists for this project — the same fired set the project page lists with its Clear buttons. */
 function AlertDot() {
   return (
     <BellDot

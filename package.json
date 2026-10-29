@@ -2,7 +2,7 @@
   "name": "newinvoice",
   "version": "0.1.0",
   "private": true,
-  "description": "Single-tenant invoice tracking app for freelancers and contractors — projects, snapshot-locked invoices, Excel/PDF generation, and an optional AI-assisted data-entry panel.",
+  "description": "Single-tenant invoice tracking app for freelancers and contractors — projects, snapshot-locked invoices, Excel/PDF generation.",
   "license": "MIT",
   "repository": {
     "type": "git",

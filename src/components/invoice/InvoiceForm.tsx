@@ -11,17 +11,12 @@ import {
   createInvoiceDraftAction,
   updateInvoiceDraftAction,
 } from "@/actions/invoice.actions";
-import { classifyAutofillNoteAction } from "@/actions/aiAssist.actions";
 import { LineItemsEditor } from "@/components/invoice/LineItemsEditor";
 import { FormField } from "@/components/shared/FormField";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { AIAssistPanel } from "@/components/ai-assist/AIAssistPanel";
-import { useApplySuggestion } from "@/components/ai-assist/useApplySuggestion";
-import type { AiAssistConfigSummary } from "@/lib/ai-providers/config";
-import type { InvoiceAiContext } from "@/services/aiAssistService";
 import type { InvoiceAutofillData } from "@/services/invoiceService";
 import { computeDueDate } from "@/lib/invoicePeriod";
 import { formatDisplayDate } from "@/lib/dates";
@@ -164,7 +159,6 @@ export function InvoiceForm({
   invoiceId,
   project,
   defaultValues,
-  aiConfig,
   autofillData,
   invoiceNumberConflict,
   returnTo,
@@ -174,7 +168,6 @@ export function InvoiceForm({
   invoiceId?: string;
   project: InvoiceFormProjectInfo;
   defaultValues?: Partial<InvoiceInput>;
-  aiConfig: AiAssistConfigSummary;
   /** M18 (Autofill) — the project's most recent invoice's items/notes, pre-fetched server-side; create mode only, null when the project has no prior invoice. */
   autofillData?: InvoiceAutofillData | null;
   /**
@@ -190,7 +183,6 @@ export function InvoiceForm({
 }) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { highlightedKeys, applySuggestion } = useApplySuggestion();
 
   const {
     register,
@@ -310,56 +302,23 @@ export function InvoiceForm({
 
   /**
    * M18 (Autofill) — items/notes only; invoiceNumber/dates/convertedTotal
-   * are left exactly as they are. `itemsNote` gets one extra check before
-   * being copied over: if the old invoice's note is purely a period
-   * statement (e.g. "Covers services rendered Jul 1 – Jul 31, 2026."), it's
-   * regenerated against *this* invoice's own period instead of pasting in
-   * the old dates — otherwise it's copied verbatim, same as every other
-   * autofilled field. `lastAutoItemsNoteRef` is updated to match in the
-   * regenerated case only, so the M39 recompute effect above keeps treating
-   * it as "not yet manually customized" and continues auto-updating it if
-   * the period is edited again; left untouched in the verbatim case, so
-   * that effect leaves a real carried-over note alone, same as a hand-typed
-   * one.
+   * are left exactly as they are. Every autofilled field, `itemsNote`
+   * included, is copied over verbatim; `lastAutoItemsNoteRef` is left
+   * untouched so the M39 recompute effect above treats a carried-over note
+   * like a hand-typed one and leaves it alone.
    */
-  async function handleAutofill() {
+  function handleAutofill() {
     if (!autofillData) return;
     setAutofillPending(true);
-
-    let itemsNote = autofillData.itemsNote;
-    const currentPeriodStart = getValues("periodStart");
-    const currentPeriodEnd = getValues("periodEnd");
-    if (itemsNote.trim() && currentPeriodStart && currentPeriodEnd) {
-      const classification = await classifyAutofillNoteAction(itemsNote);
-      if (classification.success && classification.data.isDefaultPeriodNote) {
-        itemsNote = `Covers services rendered ${formatDisplayDate(new Date(currentPeriodStart))} – ${formatDisplayDate(new Date(currentPeriodEnd))}.`;
-        lastAutoItemsNoteRef.current = itemsNote;
-      }
-    }
 
     reset({
       ...getValues(),
       items: autofillData.items,
-      itemsNote,
+      itemsNote: autofillData.itemsNote,
       bottomNote: autofillData.bottomNote,
     });
     setAutofillPending(false);
     toast.success("Filled in from the last invoice — review before saving.");
-  }
-
-  /** M18 (AI-assist context) — read fresh at send-time, not memoized, so it always reflects the form's current values. */
-  function getAiContext(): InvoiceAiContext {
-    return {
-      project: {
-        name: project.name,
-        contractorName: project.contractorName,
-        clientName: project.clientName,
-        preferredPaymentMethodLabel: project.preferredPaymentMethodLabel,
-        currency: project.currency,
-        invoiceNumberFormat: project.invoiceNumberFormat,
-      },
-      currentValues: getValues(),
-    };
   }
 
   const onSubmit = handleSubmit(async (values) => {
@@ -435,7 +394,6 @@ export function InvoiceForm({
                 htmlFor="invoiceNumber"
                 required
                 error={errors.invoiceNumber?.message}
-                highlighted={highlightedKeys.has("invoiceNumber")}
               >
                 <Input
                   id="invoiceNumber"
@@ -464,7 +422,6 @@ export function InvoiceForm({
                   htmlFor="issueDate"
                   required
                   error={errors.issueDate?.message}
-                  highlighted={highlightedKeys.has("issueDate")}
                 >
                   <Input
                     id="issueDate"
@@ -477,7 +434,6 @@ export function InvoiceForm({
                   htmlFor="dueDate"
                   required
                   error={errors.dueDate?.message}
-                  highlighted={highlightedKeys.has("dueDate")}
                 >
                   <Input id="dueDate" type="date" {...register("dueDate")} />
                 </FormField>
@@ -488,7 +444,6 @@ export function InvoiceForm({
                   label="Period Start"
                   htmlFor="periodStart"
                   error={errors.periodStart?.message}
-                  highlighted={highlightedKeys.has("periodStart")}
                 >
                   <Input
                     id="periodStart"
@@ -504,7 +459,6 @@ export function InvoiceForm({
                   label="Period End"
                   htmlFor="periodEnd"
                   error={errors.periodEnd?.message}
-                  highlighted={highlightedKeys.has("periodEnd")}
                 >
                   <Input
                     id="periodEnd"
@@ -519,7 +473,6 @@ export function InvoiceForm({
                   label={`Converted Total (${project.displayCurrency})`}
                   htmlFor="convertedTotal"
                   error={errors.convertedTotal?.message}
-                  highlighted={highlightedKeys.has("convertedTotal")}
                 >
                   <Input
                     id="convertedTotal"
@@ -539,7 +492,6 @@ export function InvoiceForm({
                 control={control}
                 register={register}
                 errors={errors}
-                highlighted={highlightedKeys.has("items")}
                 currency={project.currency}
                 referralCreditEnabled={project.referralCreditEnabled}
                 referralCreditDefaultLabel={project.referralCreditDefaultLabel}
@@ -554,7 +506,6 @@ export function InvoiceForm({
                 label="Items Note"
                 htmlFor="itemsNote"
                 error={errors.itemsNote?.message}
-                highlighted={highlightedKeys.has("itemsNote")}
               >
                 <Textarea
                   id="itemsNote"
@@ -568,7 +519,6 @@ export function InvoiceForm({
                 label="Note"
                 htmlFor="bottomNote"
                 error={errors.bottomNote?.message}
-                highlighted={highlightedKeys.has("bottomNote")}
               >
                 <Textarea
                   id="bottomNote"
@@ -606,16 +556,6 @@ export function InvoiceForm({
           </CardContent>
         </Card>
 
-        <AIAssistPanel
-          formType="invoice"
-          aiConfig={aiConfig}
-          getContext={getAiContext}
-          onApply={(suggestion) =>
-            applySuggestion(suggestion, (patch) =>
-              reset({ ...getValues(), ...patch }),
-            )
-          }
-        />
       </div>
     </>
   );

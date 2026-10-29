@@ -75,7 +75,6 @@
   --nav-icon-bg: rgba(255, 255, 255, 0.08);
   --nav-border: rgba(255, 255, 255, 0.08);
   --nav-email-text: #64748b;
-  --alert-banner-gradient: linear-gradient(135deg, #1e1b4b, #312e81);
 
   /* Status tokens (invoice lifecycle only — §7/§11), for use once StatusBadge lands (M6/M7) */
   --status-draft-bg: #f1f5f9;

@@ -18,9 +18,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AIAssistPanel } from "@/components/ai-assist/AIAssistPanel";
-import { useApplySuggestion } from "@/components/ai-assist/useApplySuggestion";
-import type { AiAssistConfigSummary } from "@/lib/ai-providers/config";
 import type { Party } from "@/generated/prisma/client";
 
 const partyTypeLabels: Record<PartyInput["type"], string> = {
@@ -58,14 +55,12 @@ export function PartyForm({
   mode,
   partyId,
   defaultValues,
-  aiConfig,
   onCreated,
   embedded = false,
 }: {
   mode: "create" | "edit";
   partyId?: string;
   defaultValues?: Partial<PartyInput>;
-  aiConfig?: AiAssistConfigSummary;
   /**
    * M17.3 — when provided, called with the created
    * Party instead of navigating to its detail page. Lets this form be
@@ -74,22 +69,18 @@ export function PartyForm({
    */
   onCreated?: (party: Party) => void;
   /**
-   * Renders bare form fields with no Card wrapper, no AI-assist panel, and
-   * no side-by-side grid — for use inside another page's modal. `aiConfig`
-   * is unused/unnecessary in this mode.
+   * Renders bare form fields with no Card wrapper and no side-by-side grid
+   * — for use inside another page's modal.
    */
   embedded?: boolean;
 }) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { highlightedKeys, applySuggestion } = useApplySuggestion();
 
   const {
     register,
     control,
     handleSubmit,
-    reset,
-    getValues,
     formState: { errors },
   } = useForm<PartyInput>({
     resolver: zodResolver(partySchema),
@@ -141,7 +132,6 @@ export function PartyForm({
         htmlFor="name"
         required
         error={errors.name?.message}
-        highlighted={highlightedKeys.has("name")}
       >
         <Input id="name" {...register("name")} />
       </FormField>
@@ -150,7 +140,6 @@ export function PartyForm({
         label="Email"
         htmlFor="email"
         error={errors.email?.message}
-        highlighted={highlightedKeys.has("email")}
       >
         <Input id="email" type="email" {...register("email")} />
       </FormField>
@@ -160,7 +149,6 @@ export function PartyForm({
         htmlFor="type"
         required
         error={errors.type?.message}
-        highlighted={highlightedKeys.has("type")}
       >
         <Controller
           name="type"
@@ -188,7 +176,6 @@ export function PartyForm({
         label="Street 1"
         htmlFor="street1"
         error={errors.street1?.message}
-        highlighted={highlightedKeys.has("street1")}
       >
         <Input id="street1" {...register("street1")} />
       </FormField>
@@ -197,7 +184,6 @@ export function PartyForm({
         label="Street 2"
         htmlFor="street2"
         error={errors.street2?.message}
-        highlighted={highlightedKeys.has("street2")}
       >
         <Input id="street2" {...register("street2")} />
       </FormField>
@@ -207,7 +193,6 @@ export function PartyForm({
           label="City"
           htmlFor="city"
           error={errors.city?.message}
-          highlighted={highlightedKeys.has("city")}
         >
           <Input id="city" {...register("city")} />
         </FormField>
@@ -215,7 +200,6 @@ export function PartyForm({
           label="State"
           htmlFor="state"
           error={errors.state?.message}
-          highlighted={highlightedKeys.has("state")}
         >
           <Input id="state" {...register("state")} />
         </FormField>
@@ -226,7 +210,6 @@ export function PartyForm({
           label="Postal Code"
           htmlFor="postalCode"
           error={errors.postalCode?.message}
-          highlighted={highlightedKeys.has("postalCode")}
         >
           <Input id="postalCode" {...register("postalCode")} />
         </FormField>
@@ -234,7 +217,6 @@ export function PartyForm({
           label="Country"
           htmlFor="country"
           error={errors.country?.message}
-          highlighted={highlightedKeys.has("country")}
         >
           <Input id="country" {...register("country")} />
         </FormField>
@@ -260,15 +242,6 @@ export function PartyForm({
         <CardContent className="pt-6">{formFields}</CardContent>
       </Card>
 
-      <AIAssistPanel
-        formType="party"
-        aiConfig={aiConfig!}
-        onApply={(suggestion) =>
-          applySuggestion(suggestion, (patch) =>
-            reset({ ...getValues(), ...patch }),
-          )
-        }
-      />
     </div>
   );
 }

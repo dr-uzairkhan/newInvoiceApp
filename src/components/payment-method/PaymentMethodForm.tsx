@@ -29,9 +29,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AIAssistPanel } from "@/components/ai-assist/AIAssistPanel";
-import { useApplySuggestion } from "@/components/ai-assist/useApplySuggestion";
-import type { AiAssistConfigSummary } from "@/lib/ai-providers/config";
 import type { PaymentMethod } from "@/generated/prisma/client";
 
 const typeLabels: Record<PaymentMethodInput["type"], string> = {
@@ -71,7 +68,6 @@ export function PaymentMethodForm({
   partyId,
   paymentMethodId,
   defaultValues,
-  aiConfig,
   onCreated,
   embedded = false,
   returnTo,
@@ -80,7 +76,6 @@ export function PaymentMethodForm({
   partyId: string;
   paymentMethodId?: string;
   defaultValues?: Partial<PaymentMethodInput>;
-  aiConfig?: AiAssistConfigSummary;
   /**
    * M17.4 — when provided, called with the created
    * PaymentMethod instead of navigating to the party's detail page. Lets
@@ -89,9 +84,8 @@ export function PaymentMethodForm({
    */
   onCreated?: (paymentMethod: PaymentMethod) => void;
   /**
-   * Renders bare form fields with no Card wrapper, no AI-assist panel, and
-   * no side-by-side grid — for use inside another page's modal. `aiConfig`
-   * is unused/unnecessary in this mode.
+   * Renders bare form fields with no Card wrapper and no side-by-side grid
+   * — for use inside another page's modal.
    */
   embedded?: boolean;
   /** Where to land after saving — defaults to this party's Payment Methods tab when unset (never used in `embedded` mode, which never navigates at all). */
@@ -99,7 +93,6 @@ export function PaymentMethodForm({
 }) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { highlightedKeys, applySuggestion } = useApplySuggestion();
 
   const {
     register,
@@ -107,7 +100,6 @@ export function PaymentMethodForm({
     handleSubmit,
     setValue,
     getValues,
-    reset,
     formState: { errors },
   } = useForm<PaymentMethodInput>({
     resolver: zodResolver(paymentMethodSchema),
@@ -167,15 +159,6 @@ export function PaymentMethodForm({
     }
   });
 
-  function handleApplySuggestion(suggestion: Record<string, unknown>) {
-    applySuggestion(suggestion, (patch) => {
-      reset({ ...getValues(), ...patch });
-      if (typeof patch.type === "string") {
-        previousTypeRef.current = patch.type as PaymentMethodInput["type"];
-      }
-    });
-  }
-
   const formFields = (
     <form onSubmit={onSubmit} noValidate>
       <FormField
@@ -183,7 +166,6 @@ export function PaymentMethodForm({
         htmlFor="type"
         required
         error={errors.type?.message}
-        highlighted={highlightedKeys.has("type")}
       >
         <Controller
           name="type"
@@ -238,7 +220,6 @@ export function PaymentMethodForm({
         htmlFor="label"
         required
         error={errors.label?.message}
-        highlighted={highlightedKeys.has("label")}
       >
         <Input
           id="label"
@@ -250,7 +231,6 @@ export function PaymentMethodForm({
       <div
         className={cn(
           "mb-4 flex flex-col gap-1 rounded-md transition-colors duration-1000",
-          highlightedKeys.has("isDefault") && "bg-brand-light/60",
         )}
       >
         <div className="flex items-center gap-2">
@@ -281,7 +261,6 @@ export function PaymentMethodForm({
       <div
         className={cn(
           "mb-2 flex items-center justify-between rounded-md transition-colors duration-1000",
-          highlightedKeys.has("fields") && "bg-brand-light/60",
         )}
       >
         <span className="text-[11px] font-bold tracking-[0.05em] text-muted-foreground uppercase">
@@ -408,11 +387,6 @@ export function PaymentMethodForm({
         <CardContent className="pt-6">{formFields}</CardContent>
       </Card>
 
-      <AIAssistPanel
-        formType="paymentMethod"
-        aiConfig={aiConfig!}
-        onApply={handleApplySuggestion}
-      />
     </div>
   );
 }

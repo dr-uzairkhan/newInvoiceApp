@@ -14,7 +14,7 @@ import type { PaymentMethod } from "@/generated/prisma/client";
  * M17.4 — lets an admin add a contractor's first
  * payment method without leaving the Project page. Embeds the full
  * PaymentMethodForm (identical fields to the standalone
- * /parties/[id]/payment-methods/new page) in embedded/AI-assist-free mode.
+ * /parties/[id]/payment-methods/new page) in embedded mode.
  * Only rendered while `open`, so each opening starts from a fresh, blank
  * form. Contractor-only by construction — this dialog is only ever wired up
  * from ProjectForm's Contractor field, never Client (

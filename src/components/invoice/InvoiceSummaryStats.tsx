@@ -3,9 +3,8 @@ import { cn } from "@/lib/utils";
 /**
  * Invoices list summary row (ui_redesign_handoff_v3
  * screenshots/06-invoices-desktop.jpg) — plain static stat cards, no
- * click-to-filter behavior (unlike the dashboard's ActionRequiredPanel
- * metric cards, which drive the Action Required list below them; there's no
- * equivalent list here to drive — the existing status filter tabs already
+ * click-to-filter behavior (there's no list here for a stat to drive — the
+ * existing status filter tabs already
  * cover that).
  */
 export function InvoiceSummaryStats({

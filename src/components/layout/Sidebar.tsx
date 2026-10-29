@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getNavItems, isActiveNavHref } from "./navItems";
-import { AlertsBell } from "./AlertsBell";
 import { signOutAction } from "@/actions/auth.actions";
 import type { Role } from "@/generated/prisma/client";
 
@@ -22,14 +21,11 @@ export function Sidebar({ role }: { role: Role }) {
 
   return (
     <aside className="hidden w-[240px] shrink-0 flex-col bg-nav lg:flex">
-      <div className="flex items-center justify-between gap-2.5 px-5 py-[22px]">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-[30px] w-[30px] items-center justify-center rounded-lg bg-brand text-[13px] font-bold text-white">
-            I
-          </div>
-          <span className="text-sm font-bold text-white">Invoice App</span>
+      <div className="flex items-center gap-2.5 px-5 py-[22px]">
+        <div className="flex h-[30px] w-[30px] items-center justify-center rounded-lg bg-brand text-[13px] font-bold text-white">
+          I
         </div>
-        <AlertsBell variant="sidebar" />
+        <span className="text-sm font-bold text-white">Invoice App</span>
       </div>
 
       <nav className="flex flex-1 flex-col gap-[3px] px-3 py-1">
