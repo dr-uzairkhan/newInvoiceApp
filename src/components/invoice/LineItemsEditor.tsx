@@ -1,6 +1,7 @@
 "use client";
 
 import { Controller, useFieldArray, useWatch } from "react-hook-form";
+import type { ReactNode } from "react";
 import type { Control, FieldErrors, UseFormRegister } from "react-hook-form";
 import { Plus, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -30,6 +31,8 @@ export function LineItemsEditor({
   currency,
   referralCreditEnabled,
   referralCreditDefaultLabel,
+  descriptionLabelSuffix,
+  highlightedItemIndex = null,
 }: {
   control: Control<InvoiceInput>;
   register: UseFormRegister<InvoiceInput>;
@@ -42,6 +45,10 @@ export function LineItemsEditor({
   referralCreditEnabled: boolean;
   /** M35 — project.referralCreditLabel, already resolved against its default by the caller. */
   referralCreditDefaultLabel: string;
+  /** §19 — rendered after each row's Description label (the form's "Improve" button); null when AI isn't configured. */
+  descriptionLabelSuffix?: (index: number) => ReactNode;
+  /** ui_design_guide §14 — which row's Description to flash after an Improve, if any. */
+  highlightedItemIndex?: number | null;
 }) {
   const { fields, append, remove } = useFieldArray({ control, name: "items" });
   const watchedItems = useWatch({ control, name: "items" });
@@ -161,6 +168,8 @@ export function LineItemsEditor({
               htmlFor={`items.${index}.description`}
               error={errors.items?.[index]?.description?.message}
               className="mb-3"
+              labelSuffix={descriptionLabelSuffix?.(index)}
+              highlighted={highlightedItemIndex === index}
             >
               <Input
                 id={`items.${index}.description`}

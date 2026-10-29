@@ -249,6 +249,7 @@ model Invoice {
   updatedAt DateTime @updatedAt
 
   items InvoiceItem[]
+  comments InvoiceComment[]
 
   @@unique([projectId, invoiceNumber])
   @@index([status])
@@ -321,6 +322,7 @@ model User {
   accounts Account[]
   sessions Session[]
   createdInvoices Invoice[]
+  invoiceComments InvoiceComment[]
   createdProjects Project[]
 }
 
@@ -387,4 +389,23 @@ model AiProviderSetting {
   order Int
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+/// Operational notes recorded against an invoice at any point in its life
+/// ("client confirmed receipt", "payment promised Friday"). Never part of
+/// the invoice document or the sent snapshot — a separate table rather than
+/// an Invoice column, so it works in every status without touching the
+/// DRAFT-only edit path or the SENT lock. Add + delete only (author or
+/// ADMIN may delete); entries are never edited, so the log reads honestly.
+model InvoiceComment {
+  id String @id @default(cuid())
+  invoiceId String
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  authorUserId String?
+  author User? @relation(fields: [authorUserId], references: [id], onDelete: SetNull)
+  body String
+  createdAt DateTime @default(now())
+
+  @@index([invoiceId, createdAt])
+  @@index([authorUserId])
 }

@@ -16,6 +16,9 @@ import { Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { invoiceService } from "@/services/invoiceService";
 import { documentService } from "@/services/documentService";
+import { invoiceCommentService } from "@/services/invoiceCommentService";
+import { getAiAssistConfigSummary } from "@/lib/ai-providers/config";
+import { auth } from "@/lib/auth";
 import { toDateInputValue, isOverdue } from "@/lib/dates";
 import { buildInvoiceActivity } from "@/lib/invoiceActivity";
 import { resolveBackTarget, withReturnTo } from "@/lib/backNavigation";
@@ -52,7 +55,25 @@ export default async function InvoiceDetailPage({
   if (!isEditingDraft) {
     const tab = resolveTab(tabParam);
     const data = documentService.assembleInvoiceDocumentData(invoice);
-    const events = buildInvoiceActivity(invoice);
+    // §31 — comments interleave with the derived events; whether the viewer
+    // may delete each one (author or ADMIN) is decided here, server-side.
+    const [session, comments] = await Promise.all([
+      auth(),
+      invoiceCommentService.listForInvoice(invoice.id),
+    ]);
+    const actor = session
+      ? { userId: session.user.id, role: session.user.role }
+      : null;
+    const events = buildInvoiceActivity(
+      invoice,
+      comments.map((comment) => ({
+        id: comment.id,
+        body: comment.body,
+        createdAt: comment.createdAt,
+        authorName: comment.author?.name ?? comment.author?.email ?? null,
+        canDelete: invoiceCommentService.canDelete(comment, actor),
+      })),
+    );
     const overdue = invoice.status === "SENT" && isOverdue(invoice.dueDate);
     const isDraft = invoice.status === "DRAFT";
 
@@ -124,6 +145,7 @@ export default async function InvoiceDetailPage({
           <InvoicePreviewTab invoiceId={invoice.id} data={data} />
         ) : (
           <InvoiceActivityTab
+            invoiceId={invoice.id}
             invoiceNumber={invoice.invoiceNumber}
             events={events}
           />
@@ -132,6 +154,7 @@ export default async function InvoiceDetailPage({
     );
   }
   const previewHref = withReturnTo(`/invoices/${invoice.id}`, returnTo);
+  const { configured: aiConfigured } = await getAiAssistConfigSummary();
   const headerAction = (
     <div className="flex flex-wrap items-center gap-3">
       <StatusBadge status={invoice.status} dueDate={invoice.dueDate} />
@@ -167,6 +190,7 @@ export default async function InvoiceDetailPage({
         mode="edit"
         invoiceId={invoice.id}
         projectId={invoice.projectId}
+        aiConfigured={aiConfigured}
         returnTo={returnTo}
         project={{
           name: invoice.project.name,

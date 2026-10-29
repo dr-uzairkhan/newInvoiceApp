@@ -158,7 +158,7 @@ MVP deletion rules are based entirely on **live foreign-key references** — nev
 
 ## 19. AI Scope and Provider Configuration Decision
 
-AI in this app is limited to **small, field-level text help** (improving or rewording text the admin has already typed). There is deliberately **no chat-style data-entry panel** on any form: staging whole records from natural language adds a second, model-driven path into every form's validation surface for little practical gain. The provider configuration below exists ahead of the text-help affordance; until that ships, nothing in the app calls a model.
+AI in this app is limited to **small, field-level text help** (improving or rewording text the admin has already typed). There is deliberately **no chat-style data-entry panel** on any form: staging whole records from natural language adds a second, model-driven path into every form's validation surface for little practical gain. Concretely: an "Improve" button beside each invoice line-item description, the items note and the bottom note (`ImproveTextButton`, `aiTextService.improveText`), shown only when a provider is configured.
 
 Governing rules:
 
@@ -281,3 +281,13 @@ M48 — a reference invoice showed every line item priced as a flat amount (e.g.
 - **The table-layout switch is invoice-wide, not per-row.** The preview/PDF/Excel line-items table collapses to a single `Item / Duration / Amount` layout only when *every* item on the invoice is Flat-amount (`documentService.assembleInvoiceDocumentData`'s `AllItemsFlat`, computed once and shared by all three renderers so they can never disagree). The moment an invoice mixes in even one Hourly row, the table reverts to the original `Item / Unit (Hrs) / Rate / Amount` layout, and Flat rows within it keep showing "-" in those two columns exactly as before this decision — the header row is shared by the whole table, so there's no way to vary column meaning per row without either a two-tier header or awkward merged cells under a mismatched label, and no invoice in practice mixes granular hourly billing with lump-sum rows on the same document.
 - **The referral-credit row never gets a `DurationText` field**, even on an all-Flat invoice — it renders blank/dash in the Duration column, consistent with `IsReferralCredit`'s existing "not a real billable line" treatment (§25) rather than asking the admin to invent a duration for a deduction.
 - **A required, non-empty field rather than an optional one.** Leaving it optional would let an all-Flat invoice render a table with the exact same "what does this represent?" gap the feature was built to close, just moved from the Unit/Rate columns into the new Duration one — the admin already has to fill in `Amount` for a Flat row, so `DurationText` is asked for in the same place at the same time.
+
+## 31. Invoice Comments Decision
+
+Users wanted to record notes against an invoice after creating it, after marking it sent, after marking it paid ("client confirmed receipt", "payment promised Friday") — operational memory, explicitly *not* part of the invoice.
+
+- **A separate `InvoiceComment` table, not an `Invoice` column.** An invoice column would have needed a carve-out from the DRAFT-only edit path and the SENT lock (§11) to be writable in every status; a child table needs none. It also keeps `Invoice.updatedAt` meaningful — the Activity tab reads it as the last status change, and adding a comment must not move it.
+- **Never printed, never snapshotted.** Comments are excluded from `documentService` and every renderer, from Autofill, and from the sent snapshot by construction (they are not invoice fields at all).
+- **Add + delete only, no edit.** A log reads honestly when entries are immutable; a wrong note is deleted and rewritten. Delete is limited to the comment's author or an `ADMIN`, enforced in the service and mirrored in the UI (the Delete control only renders when permitted).
+- **Home is the Activity tab**, interleaved by timestamp with the derived lifecycle events, so "sent → client confirmed → paid" reads as one timeline; a composer sits at its top. Every invoice row (Invoices page, project and party tabs, Projects workspace) shows a count badge with the newest comment on hover, and the row actions menu offers "Add comment" in a dialog, so a note can be left without opening the invoice.
+- **Author is a nullable `User` reference** (`SetNull` on user deletion) — the comment outlives the account that wrote it; the display falls back to "Comment".

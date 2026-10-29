@@ -13,6 +13,7 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { TRANSITIONS } from "@/components/invoice/StatusActionBar";
+import { InvoiceCommentDialog } from "@/components/invoice/InvoiceCommentDialog";
 import {
   transitionInvoiceStatusAction,
   deleteInvoiceAction,
@@ -26,20 +27,26 @@ import type { InvoiceStatus } from "@/generated/prisma/client";
  * skips the detail page's payment-method warning on the Sent transition
  * (that requires the project's preferred-payment-method flag, which isn't
  * part of InvoiceTableRow) — the confirmation dialog still requires an
- * explicit second click either way.
+ * explicit second click either way. "Add comment" (§31) is available in
+ * every status, since comments sit outside the invoice lifecycle.
  */
 export function InvoiceRowActionsMenu({
   invoiceId,
+  invoiceNumber,
   status,
+  latestComment,
 }: {
   invoiceId: string;
+  invoiceNumber: string;
   status: InvoiceStatus;
+  latestComment: string | null;
 }) {
   const router = useRouter();
   const [pendingTarget, setPendingTarget] = useState<InvoiceStatus | null>(
     null,
   );
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [commenting, setCommenting] = useState(false);
 
   async function handleTransition(target: InvoiceStatus) {
     const result = await transitionInvoiceStatusAction(invoiceId, target);
@@ -82,6 +89,9 @@ export function InvoiceRowActionsMenu({
             <MoreVertical className="h-3.5 w-3.5" />
           </DropdownMenuTrigger>
           <DropdownMenuContent>
+            <DropdownMenuItem onClick={() => setCommenting(true)}>
+              Add comment
+            </DropdownMenuItem>
             {transitions.map((transition) => (
               <DropdownMenuItem
                 key={transition.target}
@@ -114,6 +124,13 @@ export function InvoiceRowActionsMenu({
           onConfirm={() => handleTransition(transition.target)}
         />
       ))}
+      <InvoiceCommentDialog
+        open={commenting}
+        onOpenChange={setCommenting}
+        invoiceId={invoiceId}
+        invoiceNumber={invoiceNumber}
+        latestComment={latestComment}
+      />
       <ConfirmDialog
         hideTrigger
         open={confirmingDelete}

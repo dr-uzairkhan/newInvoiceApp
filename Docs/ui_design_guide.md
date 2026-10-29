@@ -230,7 +230,7 @@ Applies to: "No parties yet" → "Create your first party"; "No payment methods"
 
 ## 14. AI Text Help
 
-AI is limited to a small, field-level affordance next to long-text fields on the **Invoice** form (never Project), per `Docs/implementation_decisions.md` §19 — not yet shipped; the `/settings` providers page exists ahead of it. There is no chat panel and no persistent AI column in any layout.
+AI is limited to a small, field-level affordance — an "Improve" button after the label of each line-item description, the items note and the bottom note on the **Invoice** form (never Project), per `Docs/implementation_decisions.md` §19. There is no chat panel and no persistent AI column in any layout.
 
 - **Behavior signal**: when a field is rewritten, it flashes briefly (`brand-light` background, the `highlighted` prop on `FormField`/`LineItemsEditor`) so the admin sees exactly what changed before saving; the form is never submitted on the admin's behalf.
 - **Absence is normal, not broken**: with no provider configured the affordance is not rendered at all — no empty state, no `alert-error`; the form never indicates anything is "missing."

@@ -1,4 +1,6 @@
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { InvoiceCommentComposer } from "@/components/invoice/InvoiceCommentComposer";
+import { DeleteCommentButton } from "@/components/invoice/DeleteCommentButton";
 import type { InvoiceActivityEvent } from "@/lib/invoiceActivity";
 
 const DOT_TONE: Record<InvoiceActivityEvent["tone"], string> = {
@@ -18,11 +20,19 @@ function formatDateTime(date: Date): string {
   }).format(date);
 }
 
-/** Invoice detail Activity tab — see lib/invoiceActivity.ts for what's real vs. deliberately omitted. */
+/**
+ * Invoice detail Activity tab — the derived lifecycle events (see
+ * lib/invoiceActivity.ts for what's real vs. deliberately omitted) with the
+ * invoice's comments interleaved by time, plus a composer to add one.
+ * Comments are the one thing here a user writes; they are never printed on
+ * the document (Docs/implementation_decisions.md §31).
+ */
 export function InvoiceActivityTab({
+  invoiceId,
   invoiceNumber,
   events,
 }: {
+  invoiceId: string;
   invoiceNumber: string;
   events: InvoiceActivityEvent[];
 }) {
@@ -33,10 +43,13 @@ export function InvoiceActivityTab({
           Invoice activity
         </CardTitle>
         <p className="text-[11px] text-muted-foreground">
-          Audit trail for {invoiceNumber}.
+          Audit trail and comments for {invoiceNumber}.
         </p>
       </CardHeader>
       <CardContent className="flex flex-col gap-0 p-0">
+        <div className="border-b border-muted px-5 py-4">
+          <InvoiceCommentComposer invoiceId={invoiceId} />
+        </div>
         {events.map((event, index) => (
           <div
             key={event.id}
@@ -49,13 +62,24 @@ export function InvoiceActivityTab({
               <p className="text-[12px] font-semibold text-foreground">
                 {event.title}
               </p>
-              <p className="text-[11px] text-muted-foreground">
+              <p
+                className={
+                  event.comment
+                    ? "text-[12px] whitespace-pre-wrap text-foreground"
+                    : "text-[11px] text-muted-foreground"
+                }
+              >
                 {event.detail}
               </p>
             </div>
-            <span className="shrink-0 text-[10px] text-muted-foreground">
-              {formatDateTime(event.date)}
-            </span>
+            <div className="flex shrink-0 items-center gap-2">
+              <span className="text-[10px] text-muted-foreground">
+                {formatDateTime(event.date)}
+              </span>
+              {event.comment?.canDelete ? (
+                <DeleteCommentButton commentId={event.comment.id} />
+              ) : null}
+            </div>
           </div>
         ))}
       </CardContent>

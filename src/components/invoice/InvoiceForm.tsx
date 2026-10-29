@@ -27,6 +27,8 @@ import type {
   ProjectCurrencyMode,
 } from "@/generated/prisma/client";
 import { Sparkles } from "lucide-react";
+import { ImproveTextButton } from "@/components/invoice/ImproveTextButton";
+import type { ImproveTextField } from "@/services/aiTextService";
 
 export type InvoiceFormProjectInfo = {
   name: string;
@@ -159,6 +161,7 @@ export function InvoiceForm({
   invoiceId,
   project,
   defaultValues,
+  aiConfigured,
   autofillData,
   invoiceNumberConflict,
   returnTo,
@@ -168,6 +171,8 @@ export function InvoiceForm({
   invoiceId?: string;
   project: InvoiceFormProjectInfo;
   defaultValues?: Partial<InvoiceInput>;
+  /** §19 — whether an AI provider is configured; gates the "Improve" buttons beside the text fields (never shown otherwise). */
+  aiConfigured: boolean;
   /** M18 (Autofill) — the project's most recent invoice's items/notes, pre-fetched server-side; create mode only, null when the project has no prior invoice. */
   autofillData?: InvoiceAutofillData | null;
   /**
@@ -302,6 +307,34 @@ export function InvoiceForm({
   }, [issueDate, mode, getValues, setValue]);
 
   const [autofillPending, setAutofillPending] = useState(false);
+
+  /**
+   * §19 / ui_design_guide §14 — "Improve" rewrites one text field in place
+   * and flashes it for a moment so the change is visible; the toast offers
+   * Undo with the original text. `null` clears the flash.
+   */
+  const [improvedField, setImprovedField] = useState<string | null>(null);
+  function applyImprovedText(
+    name: "itemsNote" | "bottomNote" | `items.${number}.description`,
+    text: string,
+  ) {
+    setValue(name, text, { shouldValidate: true, shouldDirty: true });
+    setImprovedField(name);
+    window.setTimeout(() => setImprovedField(null), 1500);
+  }
+  function improveButton(
+    field: ImproveTextField,
+    name: "itemsNote" | "bottomNote" | `items.${number}.description`,
+  ) {
+    if (!aiConfigured) return null;
+    return (
+      <ImproveTextButton
+        field={field}
+        getText={() => String(getValues(name) ?? "")}
+        onApply={(text) => applyImprovedText(name, text)}
+      />
+    );
+  }
 
   /**
    * M18 (Autofill) — items/notes only; invoiceNumber/dates/convertedTotal
@@ -497,6 +530,14 @@ export function InvoiceForm({
                 currency={project.currency}
                 referralCreditEnabled={project.referralCreditEnabled}
                 referralCreditDefaultLabel={project.referralCreditDefaultLabel}
+                descriptionLabelSuffix={(index) =>
+                  improveButton("itemDescription", `items.${index}.description`)
+                }
+                highlightedItemIndex={
+                  improvedField?.startsWith("items.")
+                    ? Number(improvedField.split(".")[1])
+                    : null
+                }
               />
 
               <FormSectionHeader
@@ -508,6 +549,8 @@ export function InvoiceForm({
                 label="Items Note"
                 htmlFor="itemsNote"
                 error={errors.itemsNote?.message}
+                labelSuffix={improveButton("itemsNote", "itemsNote")}
+                highlighted={improvedField === "itemsNote"}
               >
                 <Textarea
                   id="itemsNote"
@@ -521,6 +564,8 @@ export function InvoiceForm({
                 label="Note"
                 htmlFor="bottomNote"
                 error={errors.bottomNote?.message}
+                labelSuffix={improveButton("bottomNote", "bottomNote")}
+                highlighted={improvedField === "bottomNote"}
               >
                 <Textarea
                   id="bottomNote"

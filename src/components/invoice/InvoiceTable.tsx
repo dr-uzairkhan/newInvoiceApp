@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, MessageSquare } from "lucide-react";
 import { StatusBadge } from "@/components/invoice/StatusBadge";
 import { InvoiceRowActionsMenu } from "@/components/invoice/InvoiceRowActionsMenu";
 import { formatCurrency } from "@/lib/currency";
@@ -28,6 +28,21 @@ function RowOpenLink({ href, ariaLabel }: { href: string; ariaLabel: string }) {
       className="absolute inset-0 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
       aria-label={ariaLabel}
     />
+  );
+}
+
+/** §31 — comment count beside the number; the newest comment shows on hover. Sits above the row overlay so the title tooltip is reachable. */
+function CommentBadge({ row }: { row: InvoiceTableRow }) {
+  if (row.commentCount === 0) return null;
+  return (
+    <span
+      className="relative z-10 inline-flex shrink-0 items-center gap-0.5 text-[10px] text-muted-foreground"
+      title={row.latestComment ?? undefined}
+      aria-label={`${row.commentCount} comments`}
+    >
+      <MessageSquare className="h-3 w-3" />
+      {row.commentCount}
+    </span>
   );
 }
 
@@ -91,8 +106,11 @@ export function InvoiceTable({
               href={invoiceHref(invoice.id)}
               ariaLabel={`Open invoice ${invoice.invoiceNumber}`}
             />
-            <span className="truncate font-mono text-[13px] font-semibold text-foreground">
-              {invoice.invoiceNumber}
+            <span className="flex min-w-0 items-center gap-1.5">
+              <span className="truncate font-mono text-[13px] font-semibold text-foreground">
+                {invoice.invoiceNumber}
+              </span>
+              <CommentBadge row={invoice} />
             </span>
             <Link
               href={`/parties/${invoice.project.client.id}`}
@@ -132,7 +150,9 @@ export function InvoiceTable({
             </span>
             <InvoiceRowActionsMenu
               invoiceId={invoice.id}
+              invoiceNumber={invoice.invoiceNumber}
               status={invoice.status}
+              latestComment={invoice.latestComment}
             />
           </div>
         ))}
@@ -150,8 +170,11 @@ export function InvoiceTable({
               ariaLabel={`Open invoice ${invoice.invoiceNumber}`}
             />
             <div className="flex items-center justify-between gap-2">
-              <span className="font-mono text-[13px] font-bold text-foreground">
-                {invoice.invoiceNumber}
+              <span className="flex min-w-0 items-center gap-1.5">
+                <span className="truncate font-mono text-[13px] font-bold text-foreground">
+                  {invoice.invoiceNumber}
+                </span>
+                <CommentBadge row={invoice} />
               </span>
               <div className="flex items-center gap-2">
                 <StatusBadge
@@ -160,7 +183,9 @@ export function InvoiceTable({
                 />
                 <InvoiceRowActionsMenu
                   invoiceId={invoice.id}
+                  invoiceNumber={invoice.invoiceNumber}
                   status={invoice.status}
+                  latestComment={invoice.latestComment}
                 />
               </div>
             </div>

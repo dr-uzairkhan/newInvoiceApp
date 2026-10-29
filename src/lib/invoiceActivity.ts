@@ -11,7 +11,8 @@ import type { InvoiceStatus } from "@/generated/prisma/client";
  * fabricated multi-step timeline, and no "reminder sent" entries at all
  * (there is no reminder-tracking feature in this app). "Became overdue" is
  * the one entry independently derivable from a stored field (`dueDate`)
- * rather than from `updatedAt`.
+ * rather than from `updatedAt`. User comments (`InvoiceComment`, a real
+ * table) are the one stored, timestamped record and are merged in here.
  */
 export type InvoiceActivityTone = "neutral" | "info" | "positive" | "negative";
 
@@ -21,6 +22,17 @@ export type InvoiceActivityEvent = {
   detail: string;
   date: Date;
   tone: InvoiceActivityTone;
+  /** Set for a comment entry: lets the tab render the body verbatim and offer Delete when permitted. */
+  comment?: { id: string; canDelete: boolean };
+};
+
+/** An `InvoiceComment` as the Activity tab needs it — already reduced to display fields and a permission flag by the page. */
+export type InvoiceActivityComment = {
+  id: string;
+  body: string;
+  createdAt: Date;
+  authorName: string | null;
+  canDelete: boolean;
 };
 
 const STATUS_EVENT: Record<
@@ -44,12 +56,15 @@ const STATUS_EVENT: Record<
   },
 };
 
-export function buildInvoiceActivity(invoice: {
-  status: InvoiceStatus;
-  createdAt: Date;
-  updatedAt: Date;
-  dueDate: Date;
-}): InvoiceActivityEvent[] {
+export function buildInvoiceActivity(
+  invoice: {
+    status: InvoiceStatus;
+    createdAt: Date;
+    updatedAt: Date;
+    dueDate: Date;
+  },
+  comments: InvoiceActivityComment[] = [],
+): InvoiceActivityEvent[] {
   const events: InvoiceActivityEvent[] = [
     {
       id: "created",
@@ -76,6 +91,22 @@ export function buildInvoiceActivity(invoice: {
       detail: "Payment was not recorded by the due date.",
       date: invoice.dueDate,
       tone: "negative",
+    });
+  }
+
+  // Comments (Docs/implementation_decisions.md §31) interleave with the
+  // derived events by their own timestamps, so "sent → client confirmed →
+  // paid" reads as one timeline.
+  for (const comment of comments) {
+    events.push({
+      id: `comment-${comment.id}`,
+      title: comment.authorName
+        ? `${comment.authorName} commented`
+        : "Comment",
+      detail: comment.body,
+      date: comment.createdAt,
+      tone: "info",
+      comment: { id: comment.id, canDelete: comment.canDelete },
     });
   }
 

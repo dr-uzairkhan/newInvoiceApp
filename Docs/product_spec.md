@@ -131,7 +131,21 @@ A day-of-month reminder for a `Project`, purely calendar-driven and in-app only 
 
 **Deletion**: freely deletable by the admin at any time (no live reference ever blocks it); cascades automatically when the parent `Project` is deleted.
 
-### 1.7 Entity: User
+### 1.7 Entity: InvoiceComment
+
+An operational note recorded against an invoice at any point in its life; never part of the invoice document or the SENT snapshot (`Docs/implementation_decisions.md` §31). Add and delete only — entries are never edited.
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `Id` | UUID | Primary key. |
+| `InvoiceId` | FK → Invoice | Required; deleted with the invoice. |
+| `AuthorUserId` | FK → User, Optional | The signed-in user who wrote it; set to null if that user is later deleted (the comment stays). |
+| `Body` | Text | 1–2000 characters, plain text. |
+| `CreatedAt` | Timestamp | Orders the comment within the invoice's Activity timeline. |
+
+Deletion is limited to the comment's author or an `ADMIN`.
+
+### 1.8 Entity: User
 
 Google-OAuth-only, no self-registration — see `Docs/implementation_decisions.md` §8.
 

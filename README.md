@@ -25,6 +25,7 @@ _Screenshots show the bundled demo seed data._
 - **Parties** — one unified roster of people/organizations; any party can act as a contractor, a client, or both. Payment methods (bank wire, Zelle, Payoneer, custom) with fully custom ordered field lists, **encrypted at rest**.
 - **Projects** — the bridge between a contractor and a client: preferred payment method, invoice-number format (`{abbreviation}`/`{number}`/`{date}`/`{year}`/`{month:MMM}` placeholders, with month- or year-scoped sequences and a recognised history of previous formats), invoice period for due-date defaults, and single- or dual-currency mode.
 - **Invoices** — `DRAFT → SENT → PAID` lifecycle (or `→ VOID`), with party/payment details snapshotted and **permanently locked at send time** so historical invoices survive future profile edits. Hourly and flat-amount line items, invoice notes, per-project invoice numbering.
+- **Comments** — an operational log per invoice ("client confirmed receipt"), added from the Activity tab or any list row, in any status; never printed on the document.
 - **Documents** — an on-screen A4 preview that is pixel-identical to the downloadable **PDF** (Puppeteer) and mirrored in the downloadable **Excel** workbook (ExcelJS). No files stored server-side; generated on demand.
 - **Currency** — a project denominates invoices entirely in one currency (`SINGLE` mode: USD/AUD/GBP/NZD/AED/PKR/SAR) or works USD-primary with a manually-entered converted total (`DUAL` mode). Dashboards never blend currencies.
 - **Dashboard** — a weekly action planner: one highest-priority action per project (overdue, invoice to prepare, draft to send, upcoming billing, setup gap), grouped by urgency, with same-category invoices folded into one line.
@@ -68,7 +69,7 @@ The app runs on **port 3001** by default (change `dev`/`start` in `package.json`
 
 ### Optional: AI providers
 
-The app can call Google, Anthropic, or Groq models for small text-help features. Open `/settings`, add an API key for the providers you want, and list the models to try in order. Nothing requires this — every form is fully usable by hand. Keys are encrypted at rest with `SETTINGS_ENCRYPTION_KEY` from `.env.local` — set it to any string before saving keys, and don't change it afterwards (saved keys become undecryptable).
+The app can call Google, Anthropic, or Groq models for the "Improve" buttons beside invoice text fields. Open `/settings`, add an API key for the providers you want, and list the models to try in order. Nothing requires this — every form is fully usable by hand. Keys are encrypted at rest with `SETTINGS_ENCRYPTION_KEY` from `.env.local` — set it to any string before saving keys, and don't change it afterwards (saved keys become undecryptable).
 
 ## Scripts
 

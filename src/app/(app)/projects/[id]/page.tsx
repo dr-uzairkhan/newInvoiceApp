@@ -25,7 +25,7 @@ import { paymentMethodService } from "@/services/paymentMethodService";
 import { invoiceService } from "@/services/invoiceService";
 import { projectAlertScheduleService } from "@/services/projectAlertScheduleService";
 import { buildProjectBillingRows } from "@/lib/projectBillingStatus";
-import { toInvoiceTableRow } from "@/lib/invoiceTableRow";
+import { buildInvoiceTableRows } from "@/lib/invoiceTableRows";
 import { resolveBackTarget, withReturnTo } from "@/lib/backNavigation";
 import type { PaymentMethod } from "@/generated/prisma/client";
 
@@ -245,7 +245,7 @@ async function OverviewTab({
   );
 }
 
-function InvoicesAndAlertsTab({
+async function InvoicesAndAlertsTab({
   project,
   invoices,
   alertSchedules,
@@ -309,7 +309,7 @@ function InvoicesAndAlertsTab({
         />
       ) : (
         <InvoiceTable
-          invoices={invoices.map(toInvoiceTableRow)}
+          invoices={await buildInvoiceTableRows(invoices)}
           hideProjectColumn
           returnTo={withReturnTo(
             `/projects/${project.id}?tab=invoices`,

@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
 import { projectService } from "@/services/projectService";
 import { invoiceService } from "@/services/invoiceService";
+import { invoiceCommentService } from "@/services/invoiceCommentService";
 import { projectAlertScheduleService } from "@/services/projectAlertScheduleService";
 import { buildProjectBillingRows } from "@/lib/projectBillingStatus";
 
@@ -86,6 +87,9 @@ export default async function ProjectsPage({
     firedAlertSchedules,
     liveAlertSchedules,
   });
+  const commentSummaries = await invoiceCommentService.summarizeByInvoiceIds(
+    allInvoices.map((invoice) => invoice.id),
+  );
   const billingRowByProjectId = new Map(
     billingRows.map((row) => [row.projectId, row]),
   );
@@ -171,6 +175,7 @@ export default async function ProjectsPage({
             periodEnd: invoice.periodEnd,
             total: invoice.total.toString(),
             currency: invoice.currency,
+            commentCount: commentSummaries.get(invoice.id)?.count ?? 0,
           }))}
           filterSlot={
             <ProjectStatusFilter
