@@ -7,6 +7,7 @@ import type {
 } from "@/repositories/invoiceRepository";
 import { projectRepository } from "@/repositories/projectRepository";
 import type { ProjectWithRelations } from "@/repositories/projectRepository";
+import { resolveProjectAddress, type AddressFields } from "@/lib/partyAddress";
 import {
   generateInvoiceNumber,
   fitsAnyFormat,
@@ -112,37 +113,43 @@ type PartySnapshot = {
   country: string | null;
 };
 
-function toPartySnapshot(party: {
-  name: string;
-  email: string | null;
-  street1: string | null;
-  street2: string | null;
-  city: string | null;
-  state: string | null;
-  postalCode: string | null;
-  country: string | null;
-}): PartySnapshot {
+/**
+ * A party's snapshot is its own fields plus whichever of its addresses the
+ * project resolves to (Docs/implementation_decisions.md §16) — flattened
+ * into the same shape the snapshot always had, so every document renderer
+ * and every already-stored snapshot read the same way.
+ */
+function toPartySnapshot(
+  party: { name: string; email: string | null },
+  address: AddressFields | null,
+): PartySnapshot {
   return {
     name: party.name,
     email: party.email,
-    street1: party.street1,
-    street2: party.street2,
-    city: party.city,
-    state: party.state,
-    postalCode: party.postalCode,
-    country: party.country,
+    street1: address?.street1 ?? null,
+    street2: address?.street2 ?? null,
+    city: address?.city ?? null,
+    state: address?.state ?? null,
+    postalCode: address?.postalCode ?? null,
+    country: address?.country ?? null,
   };
 }
 
 /**
  * Docs/implementation_decisions.md §11/Story 6.1 — recomputed from current
- * live Party/PaymentMethod data on every DRAFT save, never a stored/cached
- * value re-read from a prior snapshot.
+ * live Party/PartyAddress/PaymentMethod data on every DRAFT save, never a
+ * stored/cached value re-read from a prior snapshot.
  */
 function buildSnapshots(project: ProjectWithRelations) {
   return {
-    fromPartySnapshot: toPartySnapshot(project.contractor),
-    toPartySnapshot: toPartySnapshot(project.client),
+    fromPartySnapshot: toPartySnapshot(
+      project.contractor,
+      resolveProjectAddress(project, "contractor").address,
+    ),
+    toPartySnapshot: toPartySnapshot(
+      project.client,
+      resolveProjectAddress(project, "client").address,
+    ),
     paymentDetailsSnapshot: project.preferredPaymentMethod?.fields ?? [],
   };
 }

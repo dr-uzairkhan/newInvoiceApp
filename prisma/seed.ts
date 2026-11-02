@@ -10,25 +10,29 @@ import { PrismaClient } from "../src/generated/prisma/client";
 
 const prisma = new PrismaClient();
 
+/** A seeded party's snapshot shows its (single, default) seeded address, flattened the way invoiceService stores it. */
 function partySnapshot(party: {
   name: string;
   email: string | null;
-  street1: string | null;
-  street2: string | null;
-  city: string | null;
-  state: string | null;
-  postalCode: string | null;
-  country: string | null;
+  addresses: {
+    street1: string | null;
+    street2: string | null;
+    city: string | null;
+    state: string | null;
+    postalCode: string | null;
+    country: string | null;
+  }[];
 }) {
+  const address = party.addresses.find(Boolean) ?? null;
   return {
     name: party.name,
     email: party.email,
-    street1: party.street1,
-    street2: party.street2,
-    city: party.city,
-    state: party.state,
-    postalCode: party.postalCode,
-    country: party.country,
+    street1: address?.street1 ?? null,
+    street2: address?.street2 ?? null,
+    city: address?.city ?? null,
+    state: address?.state ?? null,
+    postalCode: address?.postalCode ?? null,
+    country: address?.country ?? null,
   };
 }
 
@@ -44,13 +48,20 @@ async function main() {
       name: "Northwind Consulting LLC",
       email: "billing@northwindconsulting.example",
       type: "ORGANIZATION",
-      street1: "500 Harbor Blvd",
-      street2: "Suite 220",
-      city: "Alameda",
-      state: "CA",
-      postalCode: "94501",
-      country: "USA",
+      addresses: {
+        create: {
+          label: "Primary",
+          isDefault: true,
+          street1: "500 Harbor Blvd",
+          street2: "Suite 220",
+          city: "Alameda",
+          state: "CA",
+          postalCode: "94501",
+          country: "USA",
+        },
+      },
     },
+    include: { addresses: true },
   });
 
   const client = await prisma.party.create({
@@ -58,12 +69,19 @@ async function main() {
       name: "Acme Robotics Inc.",
       email: "accounts@acmerobotics.example",
       type: "ORGANIZATION",
-      street1: "88 Innovation Way",
-      city: "Austin",
-      state: "TX",
-      postalCode: "78701",
-      country: "USA",
+      addresses: {
+        create: {
+          label: "Primary",
+          isDefault: true,
+          street1: "88 Innovation Way",
+          city: "Austin",
+          state: "TX",
+          postalCode: "78701",
+          country: "USA",
+        },
+      },
     },
+    include: { addresses: true },
   });
 
   const paymentMethodFields = [

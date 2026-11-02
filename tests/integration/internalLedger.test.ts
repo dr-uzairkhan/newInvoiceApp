@@ -63,13 +63,25 @@ async function createProject(overrides: Partial<ProjectInput>) {
   return project;
 }
 
-async function createInvoice(projectId: string, invoiceNumber: string, issueDate: string, dueDate: string) {
+async function createInvoice(
+  projectId: string,
+  invoiceNumber: string,
+  issueDate: string,
+  dueDate: string,
+) {
   const invoice = await invoiceService.createDraft(projectId, {
     invoiceNumber,
     issueDate,
     dueDate,
     items: [
-      { description: "Work", isFlatAmount: true, quantity: "", unitPrice: "", amount: "250", durationText: "Fixed" },
+      {
+        description: "Work",
+        isFlatAmount: true,
+        quantity: "",
+        unitPrice: "",
+        amount: "250",
+        durationText: "Fixed",
+      },
     ],
   });
   createdInvoiceIds.push(invoice.id);
@@ -85,9 +97,21 @@ async function principal(): Promise<Principal> {
   });
   createdUserIds.push(user.id);
   const token = await prisma.apiToken.create({
-    data: { userId: user.id, name: "[test]", tokenHash: `ledger-${user.id}`, tokenPrefix: "nv_t", scope: "READ" },
+    data: {
+      userId: user.id,
+      name: "[test]",
+      tokenHash: `ledger-${user.id}`,
+      tokenPrefix: "nv_t",
+      scope: "READ",
+    },
   });
-  return { tokenId: token.id, userId: user.id, userEmail: user.email, role: "ADMIN", scope: "READ" };
+  return {
+    tokenId: token.id,
+    userId: user.id,
+    userEmail: user.email,
+    role: "ADMIN",
+    scope: "READ",
+  };
 }
 
 /** Every cross-project aggregate the main app renders — captured before and after to prove internal rows change none of them. */
@@ -146,21 +170,31 @@ async function snapshotMainAggregates() {
 
 afterEach(async () => {
   if (createdInvoiceIds.length) {
-    await prisma.invoice.deleteMany({ where: { id: { in: createdInvoiceIds } } });
+    await prisma.invoice.deleteMany({
+      where: { id: { in: createdInvoiceIds } },
+    });
     createdInvoiceIds.length = 0;
   }
   if (createdProjectIds.length) {
-    await prisma.projectAlertSchedule.deleteMany({ where: { projectId: { in: createdProjectIds } } });
-    await prisma.project.deleteMany({ where: { id: { in: createdProjectIds } } });
+    await prisma.projectAlertSchedule.deleteMany({
+      where: { projectId: { in: createdProjectIds } },
+    });
+    await prisma.project.deleteMany({
+      where: { id: { in: createdProjectIds } },
+    });
     createdProjectIds.length = 0;
   }
   if (createdPartyIds.length) {
-    await prisma.paymentMethod.deleteMany({ where: { partyId: { in: createdPartyIds } } });
+    await prisma.paymentMethod.deleteMany({
+      where: { partyId: { in: createdPartyIds } },
+    });
     await prisma.party.deleteMany({ where: { id: { in: createdPartyIds } } });
     createdPartyIds.length = 0;
   }
   if (createdUserIds.length) {
-    await prisma.mcpAuditLog.deleteMany({ where: { userId: { in: createdUserIds } } });
+    await prisma.mcpAuditLog.deleteMany({
+      where: { userId: { in: createdUserIds } },
+    });
     await prisma.user.deleteMany({ where: { id: { in: createdUserIds } } });
     createdUserIds.length = 0;
   }
@@ -175,24 +209,56 @@ describe("internal ledger (§33)", () => {
     const before = await snapshotMainAggregates();
 
     const internal = await createProject({ ledger: "INTERNAL" });
-    const sent = await createInvoice(internal.id, "LG-01", "2020-01-01", "2020-01-15");
-    await prisma.invoice.update({ where: { id: sent.id }, data: { status: "SENT" } });
-    const draft = await createInvoice(internal.id, "LG-02", "2020-02-01", "2020-02-15");
-    await prisma.invoice.update({ where: { id: draft.id }, data: { createdAt: new Date("2020-02-01") } });
-    await projectAlertScheduleService.create(internal.id, { dayOfMonth: 1, recurring: true, label: "Send Invoice" });
+    const sent = await createInvoice(
+      internal.id,
+      "LG-01",
+      "2020-01-01",
+      "2020-01-15",
+    );
+    await prisma.invoice.update({
+      where: { id: sent.id },
+      data: { status: "SENT" },
+    });
+    const draft = await createInvoice(
+      internal.id,
+      "LG-02",
+      "2020-02-01",
+      "2020-02-15",
+    );
+    await prisma.invoice.update({
+      where: { id: draft.id },
+      data: { createdAt: new Date("2020-02-01") },
+    });
+    await projectAlertScheduleService.create(internal.id, {
+      dayOfMonth: 1,
+      recurring: true,
+      label: "Send Invoice",
+    });
 
     const after = await snapshotMainAggregates();
     expect(after).toEqual(before);
 
     // …while the internal section sees all of it.
     const internalProjects = await projectService.list({ ledger: "INTERNAL" });
-    expect(internalProjects.map((project) => project.id)).toContain(internal.id);
+    expect(internalProjects.map((project) => project.id)).toContain(
+      internal.id,
+    );
+    // Containment, not equality — the test DB may already hold other
+    // internal fixtures (same baseline rule as snapshotMainAggregates).
     const internalInvoices = await invoiceService.list({ ledger: "INTERNAL" });
-    expect(internalInvoices.map((invoice) => invoice.id).sort()).toEqual([sent.id, draft.id].sort());
-    expect(await invoiceService.listByStatus("SENT", { ledger: "INTERNAL" })).toHaveLength(1);
+    expect(internalInvoices.map((invoice) => invoice.id)).toEqual(
+      expect.arrayContaining([sent.id, draft.id]),
+    );
+    const internalSent = await invoiceService.listByStatus("SENT", {
+      ledger: "INTERNAL",
+    });
+    expect(internalSent.map((invoice) => invoice.id)).toContain(sent.id);
+    expect(internalSent.map((invoice) => invoice.id)).not.toContain(draft.id);
 
     // Direct lookups are never scoped.
-    expect((await projectService.getById(internal.id))?.ledger).toBe("INTERNAL");
+    expect((await projectService.getById(internal.id))?.ledger).toBe(
+      "INTERNAL",
+    );
     expect((await invoiceService.getById(sent.id))?.id).toBe(sent.id);
     expect((await invoiceService.listByProject(internal.id)).length).toBe(2);
   });
@@ -225,29 +291,53 @@ describe("internal ledger (§33)", () => {
       status: "ACTIVE",
       ledger: "CLIENT",
     });
-    expect((await projectService.getById(internal.id))?.ledger).toBe("INTERNAL");
+    expect((await projectService.getById(internal.id))?.ledger).toBe(
+      "INTERNAL",
+    );
   });
 
   it("MCP list tools default to CLIENT and accept ledger: INTERNAL", async () => {
     const admin = await principal();
     const internal = await createProject({ ledger: "INTERNAL" });
-    const invoice = await createInvoice(internal.id, "LG-01", "2026-01-01", "2026-01-15");
+    const invoice = await createInvoice(
+      internal.id,
+      "LG-01",
+      "2026-01-01",
+      "2026-01-15",
+    );
 
-    const read = async (tool: Parameters<typeof executeTool>[0], args: unknown) => {
+    const read = async (
+      tool: Parameters<typeof executeTool>[0],
+      args: unknown,
+    ) => {
       const result = await executeTool(tool, args, { principal: admin });
-      return JSON.parse(result.content[0].type === "text" ? result.content[0].text : "{}");
+      return JSON.parse(
+        result.content[0].type === "text" ? result.content[0].text : "{}",
+      );
     };
 
     const defaultProjects = await read(listProjects, {});
-    expect(defaultProjects.projects.map((p: { id: string }) => p.id)).not.toContain(internal.id);
+    expect(
+      defaultProjects.projects.map((p: { id: string }) => p.id),
+    ).not.toContain(internal.id);
     const internalProjects = await read(listProjects, { ledger: "INTERNAL" });
-    expect(internalProjects.projects.map((p: { id: string }) => p.id)).toContain(internal.id);
-    expect(internalProjects.projects.find((p: { id: string }) => p.id === internal.id).ledger).toBe("INTERNAL");
+    expect(
+      internalProjects.projects.map((p: { id: string }) => p.id),
+    ).toContain(internal.id);
+    expect(
+      internalProjects.projects.find(
+        (p: { id: string }) => p.id === internal.id,
+      ).ledger,
+    ).toBe("INTERNAL");
 
     const defaultInvoices = await read(listInvoices, {});
-    expect(defaultInvoices.invoices.map((i: { id: string }) => i.id)).not.toContain(invoice.id);
+    expect(
+      defaultInvoices.invoices.map((i: { id: string }) => i.id),
+    ).not.toContain(invoice.id);
     const internalInvoices = await read(listInvoices, { ledger: "INTERNAL" });
-    expect(internalInvoices.invoices.map((i: { id: string }) => i.id)).toContain(invoice.id);
+    expect(
+      internalInvoices.invoices.map((i: { id: string }) => i.id),
+    ).toContain(invoice.id);
     // projectId wins over ledger — a project has exactly one ledger.
     const byProject = await read(listInvoices, { projectId: internal.id });
     expect(byProject.invoices).toHaveLength(1);

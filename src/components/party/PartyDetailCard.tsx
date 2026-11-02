@@ -9,8 +9,9 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DetailField } from "@/components/shared/DetailField";
-import { addressLines } from "@/lib/partyAddress";
-import type { Party } from "@/generated/prisma/client";
+import { addressLines, defaultAddressOf } from "@/lib/partyAddress";
+import { withReturnTo } from "@/lib/backNavigation";
+import type { Party, PartyAddress } from "@/generated/prisma/client";
 
 const TYPE_LABELS: Record<Party["type"], string> = {
   INDIVIDUAL: "Individual",
@@ -19,16 +20,23 @@ const TYPE_LABELS: Record<Party["type"], string> = {
 
 /**
  * Read-only view of a Party — the default landing state at /parties/[id],
- * per M10.5. Mirrors every field PartyForm edits.
+ * per M10.5. Mirrors every field PartyForm edits, plus the party's default
+ * address (the full list lives on the Addresses tab).
  */
 export function PartyDetailCard({
   party,
+  addresses,
   editHref,
+  returnTo,
 }: {
   party: Party;
+  addresses: PartyAddress[];
   editHref: string;
+  returnTo?: string;
 }) {
-  const lines = addressLines(party);
+  const defaultAddress = defaultAddressOf(addresses);
+  const lines = addressLines(defaultAddress);
+  const otherCount = addresses.length - (defaultAddress ? 1 : 0);
 
   return (
     <Card>
@@ -53,17 +61,30 @@ export function PartyDetailCard({
         <DetailField label="Type" value={TYPE_LABELS[party.type]} />
         <DetailField label="Email" value={party.email ?? "—"} />
         <DetailField
-          label="Address"
+          label={
+            defaultAddress
+              ? `Default Address · ${defaultAddress.label}`
+              : "Default Address"
+          }
           value={
-            lines.length > 0 ? (
-              <span className="flex flex-col">
-                {lines.map((line, index) => (
-                  <span key={index}>{line}</span>
-                ))}
-              </span>
-            ) : (
-              "—"
-            )
+            <span className="flex flex-col">
+              {lines.length > 0 ? (
+                lines.map((line, index) => <span key={index}>{line}</span>)
+              ) : (
+                <span>—</span>
+              )}
+              <Link
+                href={withReturnTo(
+                  `/parties/${party.id}?tab=addresses`,
+                  returnTo,
+                )}
+                className="mt-1 text-[11px] font-bold text-brand hover:underline"
+              >
+                {otherCount > 0
+                  ? `Manage addresses (${otherCount} more)`
+                  : "Manage addresses"}
+              </Link>
+            </span>
           }
         />
       </CardContent>

@@ -132,7 +132,13 @@ Consequence for the UI: the contractor and client pickers on the Project form al
 
 ## 16. Address Model Decision
 
-Each `Party` has **at most one address** for MVP. Rather than keeping `Address` as its own joined table (which would only make sense if a party could have multiple addresses), the address fields (`Street1`, `Street2`, `City`, `State`, `PostalCode`, `Country`) are **inlined directly onto `Party`**. There is no address picker anywhere, and no "primary address" concept, because there is only ever one.
+A `Party` may have **several addresses**, each a `PartyAddress` row with a `Label` and an `IsDefault` flag, modelled on `PaymentMethod`: the service layer keeps at most one default per party, and a party's first address is always its default. The MVP had inlined a single address onto `Party`; it moved into its own table once a contractor needed to invoice different projects from different addresses.
+
+Which address an invoice shows is a **per-project** choice, on both sides: `Project.ContractorAddressId` and `Project.ClientAddressId` each point at one of that party's addresses (ownership re-checked server-side, like `PreferredPaymentMethodId`). Either may be left unset, meaning "that party's current default", resolved live at every `DRAFT` save and the final `DRAFT → SENT` snapshot — so a project that never picks follows the party's default, and a project that picks is unaffected by later default changes. The snapshots keep their flat shape (`Street1`…`Country` alongside `Name`/`Email`), so no document renderer or stored invoice knows the table exists.
+
+Rejected alternatives: a single address pick per project on the contractor side only (asymmetric — a client with several offices has the same need); choosing the address per invoice (an invoice form field that would almost always repeat the project's answer, and would need its own snapshot rule); keeping the inlined columns and adding a second "alternate" set (caps the count at two and makes every address consumer branch).
+
+Address edits are managed on the party's Addresses tab (add/edit in a dialog, delete blocked while any project has the address selected — §18); the party create form keeps an optional first address so onboarding stays one step, and the project form's two address pickers offer "+ Add address" for the selected party.
 
 ## 17. Currency Model Decision
 
@@ -154,6 +160,7 @@ MVP deletion rules are based entirely on **live foreign-key references** — nev
 - **`Project`**: deletable only if it has **zero** `Invoice` rows. If invoices exist, the admin must delete them first before the project can be deleted — no cascading delete.
 - **`Party`**: deletable only if it is not currently set as any `Project`'s contractor or client. (No historical `Invoice` ever blocks this, since `FromPartySnapshot`/`ToPartySnapshot` are detached copies.)
 - **`PaymentMethod`**: deletable only if it is not currently set as any `Project`'s `PreferredPaymentMethodId`. (No historical `Invoice` ever blocks this either, since `PaymentDetailsSnapshot` is a detached copy and there is no live `PaymentMethodId` foreign key on `Invoice` — see §11.)
+- **`PartyAddress`**: deletable only if it is not currently set as any `Project`'s `ContractorAddressId`/`ClientAddressId` (§16). Historical invoices never block it — the address fields are flattened into the party snapshots.
 - **`Invoice`**: deletable in **any** status, with an admin confirmation prompt, cascading its `InvoiceItem` rows. This is the mechanism that makes the `Project` deletion rule above actually satisfiable.
 
 ## 19. AI Scope and Provider Configuration Decision

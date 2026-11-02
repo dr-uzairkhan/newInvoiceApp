@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { DetailField } from "@/components/shared/DetailField";
 import { INVOICE_PERIOD_LABELS } from "@/lib/invoicePeriod";
+import { describeProjectAddress } from "@/lib/partyAddress";
 import type { ProjectWithRelations } from "@/repositories/projectRepository";
 
 const CURRENCY_LABELS: Record<ProjectWithRelations["displayCurrency"], string> =
@@ -81,6 +82,14 @@ export function ProjectDetailCard({
         />
         <DetailField label="Contractor" value={project.contractor.name} />
         <DetailField label="Client" value={project.client.name} />
+        <DetailField
+          label="Contractor Address"
+          value={describeProjectAddress(project, "contractor")}
+        />
+        <DetailField
+          label="Client Address"
+          value={describeProjectAddress(project, "client")}
+        />
         <DetailField
           label="Preferred Payment Method"
           value={project.preferredPaymentMethod?.label ?? "None"}

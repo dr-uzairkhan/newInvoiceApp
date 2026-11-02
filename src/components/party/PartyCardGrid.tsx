@@ -37,10 +37,13 @@ const TONE_PILL: Record<PartyHealthTone, string> = {
 export function PartyCardGrid({
   parties,
   billingRowByPartyId,
+  locationByPartyId,
   returnTo,
 }: {
   parties: Party[];
   billingRowByPartyId: Record<string, PartyBillingRow>;
+  /** "City, State, Country" of each party's default address (empty when it has none). */
+  locationByPartyId: Record<string, string>;
   /** The list page's own current path — carried through so back-navigation from a party's detail page returns here. */
   returnTo?: string;
 }) {
@@ -48,9 +51,7 @@ export function PartyCardGrid({
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {parties.map((party) => {
         const row = billingRowByPartyId[party.id];
-        const location = [party.city, party.state, party.country]
-          .filter(Boolean)
-          .join(", ");
+        const location = locationByPartyId[party.id] ?? "";
 
         return (
           <Link

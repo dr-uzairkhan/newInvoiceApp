@@ -4,10 +4,12 @@ import {
   projectService,
   ProjectDeletionBlockedError,
   PreferredPaymentMethodMismatchError,
+  ProjectAddressMismatchError,
   deriveAbbreviation,
 } from "@/services/projectService";
 import { partyService } from "@/services/partyService";
 import { paymentMethodService } from "@/services/paymentMethodService";
+import { partyAddressService } from "@/services/partyAddressService";
 import { prisma } from "@/lib/prisma";
 import type { ProjectInput } from "@/lib/validation/project";
 import type { PartyInput } from "@/lib/validation/party";
@@ -267,6 +269,130 @@ describe("projectService", () => {
         }),
       ),
     ).rejects.toBeInstanceOf(PreferredPaymentMethodMismatchError);
+  });
+
+  it("rejects a contractor or client address that belongs to another party, on create and update", async () => {
+    const contractor = await createTestParty("[test] Address Contractor");
+    const client = await createTestParty("[test] Address Client");
+    const stranger = await createTestParty("[test] Address Stranger");
+    const strangersAddress = await partyAddressService.create(stranger.id, {
+      label: "Elsewhere",
+      isDefault: false,
+      street1: "9 Nowhere Road",
+      street2: "",
+      city: "",
+      state: "",
+      postalCode: "",
+      country: "",
+    });
+    const clientsAddress = await partyAddressService.create(client.id, {
+      label: "Client site",
+      isDefault: false,
+      street1: "",
+      street2: "",
+      city: "Testville",
+      state: "",
+      postalCode: "",
+      country: "",
+    });
+
+    await expect(
+      projectService.create(
+        baseProjectInput({
+          name: "[test] Address Mismatch",
+          contractorId: contractor.id,
+          clientId: client.id,
+          contractorAddressId: strangersAddress.id,
+        }),
+      ),
+    ).rejects.toBeInstanceOf(ProjectAddressMismatchError);
+
+    const project = await projectService.create(
+      baseProjectInput({
+        name: "[test] Address OK",
+        contractorId: contractor.id,
+        clientId: client.id,
+        clientAddressId: clientsAddress.id,
+      }),
+    );
+    createdProjectIds.push(project.id);
+    expect(project.clientAddressId).toBe(clientsAddress.id);
+    expect(project.contractorAddressId).toBeNull();
+
+    // The client's own address is not valid on the contractor side.
+    await expect(
+      projectService.update(
+        project.id,
+        baseProjectInput({
+          name: "[test] Address OK",
+          contractorId: contractor.id,
+          clientId: client.id,
+          contractorAddressId: clientsAddress.id,
+        }),
+      ),
+    ).rejects.toBeInstanceOf(ProjectAddressMismatchError);
+
+    // Blank clears the pick back to "party default".
+    const cleared = await projectService.update(
+      project.id,
+      baseProjectInput({
+        name: "[test] Address OK",
+        contractorId: contractor.id,
+        clientId: client.id,
+        clientAddressId: "",
+      }),
+    );
+    expect(cleared.clientAddressId).toBeNull();
+  });
+
+  it("groups project refs by address for either side of the project", async () => {
+    const contractor = await createTestParty("[test] Refs Contractor");
+    const client = await createTestParty("[test] Refs Client");
+    const blank = {
+      isDefault: false,
+      street1: "1 Test Lane",
+      street2: "",
+      city: "",
+      state: "",
+      postalCode: "",
+      country: "",
+    };
+    const fromAddress = await partyAddressService.create(contractor.id, {
+      ...blank,
+      label: "From",
+    });
+    const toAddress = await partyAddressService.create(client.id, {
+      ...blank,
+      label: "To",
+    });
+    const unused = await partyAddressService.create(client.id, {
+      ...blank,
+      label: "Unused",
+    });
+
+    const project = await projectService.create(
+      baseProjectInput({
+        name: "[test] Refs Project",
+        contractorId: contractor.id,
+        clientId: client.id,
+        contractorAddressId: fromAddress.id,
+        clientAddressId: toAddress.id,
+      }),
+    );
+    createdProjectIds.push(project.id);
+
+    const refs = await projectService.listProjectRefsByAddress([
+      fromAddress.id,
+      toAddress.id,
+      unused.id,
+    ]);
+    expect(refs[fromAddress.id]).toEqual([
+      { id: project.id, name: "[test] Refs Project" },
+    ]);
+    expect(refs[toAddress.id]).toEqual([
+      { id: project.id, name: "[test] Refs Project" },
+    ]);
+    expect(refs[unused.id]).toBeUndefined();
   });
 
   it("stores previous invoice-number formats from the free-text field, deduped and without the current format", async () => {

@@ -90,12 +90,35 @@ enum InvoicePeriodType {
 
 /// Docs/product_spec.md §1.1. No Role field — any party may be used as a
 /// Project's contractor, client, or both (Docs/implementation_decisions.md §15).
-/// Address is inlined (§16) — no separate Address entity.
+/// Addresses live in `PartyAddress` (§16) — a party may have several, with
+/// at most one marked default (service-enforced, like PaymentMethod).
 model Party {
   id String @id @default(cuid())
   name String
   email String?
   type PartyType
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  addresses PartyAddress[]
+  paymentMethods PaymentMethod[]
+  projectsAsContractor Project[] @relation("ContractorParty")
+  projectsAsClient Project[] @relation("ClientParty")
+}
+
+/// Docs/product_spec.md §1.1.1. One postal address of a party, labelled so a
+/// project can pick between them ("Head office", "Downtown branch"). The
+/// service layer keeps at most one `isDefault` per party
+/// (Docs/implementation_decisions.md §16) — not a DB constraint — and a
+/// project whose `contractorAddressId`/`clientAddressId` is unset falls back
+/// to the party's default at snapshot time. Deletion is blocked while any
+/// project references the row (§18), never by a historical invoice snapshot.
+model PartyAddress {
+  id String @id @default(cuid())
+  partyId String
+  party Party @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  label String
+  isDefault Boolean @default(false)
   street1 String?
   street2 String?
   city String?
@@ -105,9 +128,10 @@ model Party {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  paymentMethods PaymentMethod[]
-  projectsAsContractor Project[] @relation("ContractorParty")
-  projectsAsClient Project[] @relation("ClientParty")
+  contractorForProjects Project[] @relation("ProjectContractorAddress")
+  clientForProjects Project[] @relation("ProjectClientAddress")
+
+  @@index([partyId])
 }
 
 /// Docs/product_spec.md §1.2. `fields` is an ordered {key,label,value}[] array —
@@ -157,6 +181,15 @@ model Project {
   contractor Party @relation("ContractorParty", fields: [contractorId], references: [id], onDelete: Restrict)
   preferredPaymentMethodId String?
   preferredPaymentMethod PaymentMethod? @relation("ProjectPreferredPaymentMethod", fields: [preferredPaymentMethodId], references: [id], onDelete: Restrict)
+  /// Which of the contractor's / client's addresses this project's invoices
+  /// show (Docs/implementation_decisions.md §16). Each must belong to the
+  /// matching party (service-checked, like `preferredPaymentMethodId`).
+  /// `null` means "that party's current default address" — resolved live
+  /// at every DRAFT save and the final DRAFT → SENT snapshot.
+  contractorAddressId String?
+  contractorAddress PartyAddress? @relation("ProjectContractorAddress", fields: [contractorAddressId], references: [id], onDelete: Restrict)
+  clientAddressId String?
+  clientAddress PartyAddress? @relation("ProjectClientAddress", fields: [clientAddressId], references: [id], onDelete: Restrict)
   invoiceNumberFormat String
   /// Formats this project used before the current one. A number matching
   /// any of them is recognised as part of the project's history (so changing
@@ -192,6 +225,8 @@ model Project {
   @@index([clientId])
   @@index([contractorId])
   @@index([preferredPaymentMethodId])
+  @@index([contractorAddressId])
+  @@index([clientAddressId])
   @@index([createdByUserId])
   @@index([sortOrder])
 }

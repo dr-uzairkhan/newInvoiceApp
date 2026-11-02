@@ -12,6 +12,16 @@ import { projectService } from "@/services/projectService";
 import { invoiceService } from "@/services/invoiceService";
 import { projectAlertScheduleService } from "@/services/projectAlertScheduleService";
 import type { ProjectWithRelations } from "@/repositories/projectRepository";
+import { resolveProjectAddress } from "@/lib/partyAddress";
+
+/** The address a side of the project resolves to, and whether that was an explicit pick or the party's default standing in. */
+function addressSummary(
+  project: ProjectWithRelations,
+  side: "contractor" | "client",
+) {
+  const { address, source } = resolveProjectAddress(project, side);
+  return address ? { id: address.id, label: address.label, source } : null;
+}
 
 function projectSummary(project: ProjectWithRelations) {
   return {
@@ -29,6 +39,8 @@ function projectSummary(project: ProjectWithRelations) {
           label: project.preferredPaymentMethod.label,
         }
       : null,
+    contractorAddress: addressSummary(project, "contractor"),
+    clientAddress: addressSummary(project, "client"),
     invoiceNumberFormat: project.invoiceNumberFormat,
     previousInvoiceNumberFormats: project.previousInvoiceNumberFormats,
     invoicePeriodType: project.invoicePeriodType,
@@ -51,8 +63,11 @@ export function projectToInput(project: ProjectWithRelations): ProjectInput {
     clientId: project.clientId,
     contractorId: project.contractorId,
     preferredPaymentMethodId: project.preferredPaymentMethodId ?? "",
+    contractorAddressId: project.contractorAddressId ?? "",
+    clientAddressId: project.clientAddressId ?? "",
     invoiceNumberFormat: project.invoiceNumberFormat,
-    previousInvoiceNumberFormats: project.previousInvoiceNumberFormats.join("\n"),
+    previousInvoiceNumberFormats:
+      project.previousInvoiceNumberFormats.join("\n"),
     invoicePeriodType: project.invoicePeriodType ?? "",
     currencyMode: project.currencyMode,
     displayCurrency: project.displayCurrency,
@@ -118,7 +133,7 @@ export const createProject = defineTool({
   name: "create_project",
   title: "Create project",
   description:
-    "Creates a project linking a contractor party to a client party. ledger: CLIENT (default, tracked on the dashboard) or INTERNAL (on-demand invoices kept off the dashboard; set once, never changed). The preferred payment method must belong to the contractor. invoiceNumberFormat uses tokens such as {abbreviation}, {number}, {number:month}, {year}, {month:MMM}, {date}. Optional text fields may be passed as empty strings.",
+    "Creates a project linking a contractor party to a client party. ledger: CLIENT (default, tracked on the dashboard) or INTERNAL (on-demand invoices kept off the dashboard; set once, never changed). The preferred payment method must belong to the contractor; contractorAddressId/clientAddressId must belong to that party and may be left blank to use the party's default address. invoiceNumberFormat uses tokens such as {abbreviation}, {number}, {number:month}, {year}, {month:MMM}, {date}. Optional text fields may be passed as empty strings.",
   inputSchema: projectFields,
   scope: "WRITE",
   roles: ROLES.writeProjects,
@@ -138,7 +153,10 @@ export const updateProject = defineTool({
   inputSchema: {
     projectId: idSchema,
     ...Object.fromEntries(
-      Object.entries(projectFields).map(([key, schema]) => [key, schema.optional()]),
+      Object.entries(projectFields).map(([key, schema]) => [
+        key,
+        schema.optional(),
+      ]),
     ),
   } as { projectId: typeof idSchema } & {
     [K in keyof typeof projectFields]: z.ZodOptional<(typeof projectFields)[K]>;

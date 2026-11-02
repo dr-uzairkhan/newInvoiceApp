@@ -3,7 +3,7 @@ import { z } from "zod";
 /**
  * Docs/mvp_user_stories.md Story 3.1/3.2: Name, Contractor, and Client are
  * required (picked from the unified party list — Docs/implementation_decisions.md
- * §15); Abbreviation and PreferredPaymentMethod are optional; InvoiceNumberFormat
+ * §15); Abbreviation, PreferredPaymentMethod and the two address picks are optional; InvoiceNumberFormat
  * is a plain text template validated for its placeholders at generation time
  * (invoiceNumberService, M5), not here; DisplayCurrency defaults to USD.
  */
@@ -14,6 +14,14 @@ export const projectSchema = z.object({
   clientId: z.string().trim().min(1, "Select a client"),
   contractorId: z.string().trim().min(1, "Select a contractor"),
   preferredPaymentMethodId: z.string().trim().optional().or(z.literal("")),
+  /**
+   * Which of the contractor's / client's addresses the invoices show
+   * (Docs/implementation_decisions.md §16). Blank = that party's default
+   * address at snapshot time. Ownership is re-checked server-side, like
+   * `preferredPaymentMethodId`.
+   */
+  contractorAddressId: z.string().trim().optional().or(z.literal("")),
+  clientAddressId: z.string().trim().optional().or(z.literal("")),
   invoiceNumberFormat: z
     .string()
     .trim()

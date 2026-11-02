@@ -8,7 +8,10 @@ import type {
   InvoiceItem,
   InvoiceStatus,
 } from "@/generated/prisma/client";
-import type { ProjectWithRelations } from "@/repositories/projectRepository";
+import {
+  PROJECT_INCLUDE,
+  type ProjectWithRelations,
+} from "@/repositories/projectRepository";
 
 /**
  * Thin Prisma wrappers only — no validation, no business rules.
@@ -330,13 +333,7 @@ function findById(id: string): Promise<InvoiceWithItems | null> {
     where: { id },
     include: {
       items: { orderBy: { sortOrder: "asc" } },
-      project: {
-        include: {
-          client: true,
-          contractor: true,
-          preferredPaymentMethod: true,
-        },
-      },
+      project: { include: PROJECT_INCLUDE },
     },
   });
 }

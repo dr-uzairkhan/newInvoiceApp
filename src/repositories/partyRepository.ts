@@ -1,23 +1,18 @@
 import { prisma } from "@/lib/prisma";
 import type { Party, PartyType } from "@/generated/prisma/client";
+import type { PartyAddressWriteInput } from "@/repositories/partyAddressRepository";
 
 /**
- * Thin Prisma wrappers only — no validation, no business rules
- *. Optional fields are `string | null` (never
- * `undefined`) so callers always explicitly state intent: `null` clears a
- * field on update, a value sets it. Undefined would be silently ignored by
- * Prisma's update — see partyService for where the null-normalization happens.
+ * Thin Prisma wrappers only — no validation, no business rules. Optional
+ * fields are `string | null` (never `undefined`) so callers always
+ * explicitly state intent: `null` clears a field on update, a value sets it.
+ * Undefined would be silently ignored by Prisma's update — see partyService
+ * for where the null-normalization happens.
  */
 export type PartyWriteInput = {
   name: string;
   email: string | null;
   type: PartyType;
-  street1: string | null;
-  street2: string | null;
-  city: string | null;
-  state: string | null;
-  postalCode: string | null;
-  country: string | null;
 };
 
 function findMany(): Promise<Party[]> {
@@ -28,8 +23,21 @@ function findById(id: string): Promise<Party | null> {
   return prisma.party.findUnique({ where: { id } });
 }
 
-function create(data: PartyWriteInput): Promise<Party> {
-  return prisma.party.create({ data });
+/**
+ * `initialAddress`, when given, is created in the same statement as the
+ * party (a nested write, so the two can't end up half-saved) — the party
+ * create form's optional first address.
+ */
+function create(
+  data: PartyWriteInput,
+  initialAddress: Omit<PartyAddressWriteInput, "partyId"> | null = null,
+): Promise<Party> {
+  return prisma.party.create({
+    data: {
+      ...data,
+      ...(initialAddress ? { addresses: { create: initialAddress } } : {}),
+    },
+  });
 }
 
 function update(id: string, data: PartyWriteInput): Promise<Party> {

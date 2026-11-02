@@ -1,11 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import {
-  partyService,
-  PartyDeletionBlockedError,
-} from "@/services/partyService";
-import { partySchema } from "@/lib/validation/party";
+import { PartyDeletionBlockedError } from "@/services/partyService";
+import { partyService } from "@/services/partyService";
+import { partyAddressService } from "@/services/partyAddressService";
+import { partyCoreSchema, partySchema } from "@/lib/validation/party";
 import { requireRole } from "@/lib/authz";
 import { ROLES } from "@/lib/permissions";
 
@@ -13,9 +12,15 @@ export type ActionResult<T> =
   | { success: true; data: T }
   | { success: false; error: string; fieldErrors?: Record<string, string[]> };
 
+/**
+ * `defaultAddressId` is the id of the first address the create form may have
+ * saved alongside the party — so an embedded caller (the project form's
+ * inline "create new party") can show it in its address picker without a
+ * refetch.
+ */
 export async function createPartyAction(
   input: unknown,
-): Promise<ActionResult<{ id: string }>> {
+): Promise<ActionResult<{ id: string; defaultAddressId: string | null }>> {
   const check = await requireRole(ROLES.writeParties);
   if (!check.ok) return { success: false, error: check.error };
 
@@ -29,8 +34,15 @@ export async function createPartyAction(
   }
 
   const party = await partyService.create(parsed.data);
+  const addresses = await partyAddressService.listForParty(party.id);
   revalidatePath("/parties");
-  return { success: true, data: { id: party.id } };
+  return {
+    success: true,
+    data: {
+      id: party.id,
+      defaultAddressId: addresses.find((a) => a.isDefault)?.id ?? null,
+    },
+  };
 }
 
 export async function updatePartyAction(
@@ -40,7 +52,8 @@ export async function updatePartyAction(
   const check = await requireRole(ROLES.writeParties);
   if (!check.ok) return { success: false, error: check.error };
 
-  const parsed = partySchema.safeParse(input);
+  // Only the party's own fields — addresses have their own actions.
+  const parsed = partyCoreSchema.safeParse(input);
   if (!parsed.success) {
     return {
       success: false,

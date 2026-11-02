@@ -5,6 +5,7 @@ import {
   projectService,
   ProjectDeletionBlockedError,
   PreferredPaymentMethodMismatchError,
+  ProjectAddressMismatchError,
 } from "@/services/projectService";
 import { projectSchema } from "@/lib/validation/project";
 import { requireRole } from "@/lib/authz";
@@ -37,7 +38,10 @@ export async function createProjectAction(
     revalidatePath("/projects");
     return { success: true, data: { id: project.id } };
   } catch (error) {
-    if (error instanceof PreferredPaymentMethodMismatchError) {
+    if (
+      error instanceof PreferredPaymentMethodMismatchError ||
+      error instanceof ProjectAddressMismatchError
+    ) {
       return { success: false, error: error.message };
     }
     throw error;
@@ -66,7 +70,10 @@ export async function updateProjectAction(
     revalidatePath(`/projects/${id}`);
     return { success: true, data: { id: project.id } };
   } catch (error) {
-    if (error instanceof PreferredPaymentMethodMismatchError) {
+    if (
+      error instanceof PreferredPaymentMethodMismatchError ||
+      error instanceof ProjectAddressMismatchError
+    ) {
       return { success: false, error: error.message };
     }
     throw error;

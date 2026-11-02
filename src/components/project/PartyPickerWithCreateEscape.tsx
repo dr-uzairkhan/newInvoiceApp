@@ -17,12 +17,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PartyForm } from "@/components/party/PartyForm";
-import type { Party } from "@/generated/prisma/client";
+import type { Party, PartyAddress } from "@/generated/prisma/client";
 
 /**
  * M17.3 — the inline "create new party" escape
  * hatch embeds the full PartyForm (identical fields to the standalone
- * /parties/new page, including address) in embedded mode, so
+ * /parties/new page, including the optional first address) in embedded mode, so
  * a party created here is never structurally incomplete and the Project
  * form underneath is never navigated away from or lost. Only rendered while
  * `open`, so each opening starts from a fresh, blank form.
@@ -34,7 +34,7 @@ function CreatePartyDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreated: (party: Party) => void;
+  onCreated: (party: Party, defaultAddress: PartyAddress | null) => void;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -49,8 +49,8 @@ function CreatePartyDialog({
           <PartyForm
             mode="create"
             embedded
-            onCreated={(party) => {
-              onCreated(party);
+            onCreated={(party, defaultAddress) => {
+              onCreated(party, defaultAddress);
               onOpenChange(false);
             }}
           />
@@ -73,7 +73,8 @@ export function PartyPickerWithCreateEscape({
   parties: Party[];
   value: string;
   onChange: (partyId: string) => void;
-  onPartyCreated: (party: Party) => void;
+  /** The new party, plus the first address the create dialog may have saved for it. */
+  onPartyCreated: (party: Party, defaultAddress: PartyAddress | null) => void;
   error?: string;
   placeholder?: string;
 }) {
@@ -120,8 +121,8 @@ export function PartyPickerWithCreateEscape({
       <CreatePartyDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        onCreated={(party) => {
-          onPartyCreated(party);
+        onCreated={(party, defaultAddress) => {
+          onPartyCreated(party, defaultAddress);
           onChange(party.id);
           setDialogOpen(false);
         }}

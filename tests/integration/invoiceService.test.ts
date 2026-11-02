@@ -11,6 +11,7 @@ import {
 import { projectService } from "@/services/projectService";
 import { partyService } from "@/services/partyService";
 import { paymentMethodService } from "@/services/paymentMethodService";
+import { partyAddressService } from "@/services/partyAddressService";
 import { prisma } from "@/lib/prisma";
 import type { InvoiceInput } from "@/lib/validation/invoice";
 import type { ProjectInput } from "@/lib/validation/project";
@@ -26,6 +27,7 @@ function basePartyInput(overrides: Partial<PartyInput> = {}): PartyInput {
     name: "[test] Party",
     email: "",
     type: "ORGANIZATION",
+    addressLabel: "",
     street1: "",
     street2: "",
     city: "",
@@ -313,6 +315,95 @@ describe("invoiceService.createDraft", () => {
         baseInvoiceInput({ invoiceNumber: "TP-DUP" }),
       ),
     ).rejects.toBeInstanceOf(DuplicateInvoiceNumberError);
+  });
+});
+
+describe("invoiceService — party address snapshots (§16)", () => {
+  const postal = {
+    isDefault: false,
+    street2: "",
+    state: "",
+    postalCode: "",
+    country: "",
+  };
+
+  it("snapshots the project's selected address, falling back to the party default, else blanks", async () => {
+    const { project, contractor, client } = await createTestProject();
+    const contractorHq = await partyAddressService.create(contractor.id, {
+      ...postal,
+      label: "HQ",
+      street1: "1 Head Office Road",
+      city: "Testville",
+    });
+    const contractorBranch = await partyAddressService.create(contractor.id, {
+      ...postal,
+      label: "Branch",
+      street1: "2 Branch Street",
+      city: "Othertown",
+    });
+    expect(contractorHq.isDefault).toBe(true);
+    expect(contractorBranch.isDefault).toBe(false);
+
+    // Nothing picked on either side: contractor falls back to its default
+    // (HQ); the client has no address at all, so its postal fields are null.
+    const draft = await invoiceService.createDraft(
+      project.id,
+      baseInvoiceInput(),
+    );
+    createdInvoiceIds.push(draft.id);
+    expect(draft.fromPartySnapshot).toMatchObject({
+      name: contractor.name,
+      street1: "1 Head Office Road",
+      city: "Testville",
+    });
+    expect(draft.toPartySnapshot).toMatchObject({
+      name: client.name,
+      street1: null,
+      city: null,
+      country: null,
+    });
+
+    // Picking the branch on the project wins over the default on the next save.
+    await prisma.project.update({
+      where: { id: project.id },
+      data: { contractorAddressId: contractorBranch.id },
+    });
+    const resaved = await invoiceService.updateDraft(
+      draft.id,
+      baseInvoiceInput(),
+    );
+    expect(resaved.fromPartySnapshot).toMatchObject({
+      street1: "2 Branch Street",
+      city: "Othertown",
+    });
+  });
+
+  it("locks the address at SENT — a later address edit or re-pick changes nothing", async () => {
+    const { project, contractor } = await createTestProject();
+    const hq = await partyAddressService.create(contractor.id, {
+      ...postal,
+      label: "HQ",
+      street1: "1 Head Office Road",
+      city: "Testville",
+    });
+    const draft = await invoiceService.createDraft(
+      project.id,
+      baseInvoiceInput(),
+    );
+    createdInvoiceIds.push(draft.id);
+
+    const sent = await invoiceService.transitionStatus(draft.id, "SENT");
+    expect(sent.fromPartySnapshot).toMatchObject({ city: "Testville" });
+
+    await partyAddressService.update(hq.id, contractor.id, {
+      ...postal,
+      label: "HQ",
+      isDefault: true,
+      street1: "1 Head Office Road",
+      city: "Moved City",
+    });
+    const reFetched = await invoiceService.getById(draft.id);
+    expect(reFetched?.fromPartySnapshot).toMatchObject({ city: "Testville" });
   });
 });
 
@@ -1517,7 +1608,11 @@ describe("migration: strip the generated period sentence out of itemsNote", () =
 
     const exact = await invoiceService.createDraft(
       project.id,
-      baseInvoiceInput({ invoiceNumber: "TP-01", ...withPeriod, itemsNote: sentence }),
+      baseInvoiceInput({
+        invoiceNumber: "TP-01",
+        ...withPeriod,
+        itemsNote: sentence,
+      }),
     );
     const prefixed = await invoiceService.createDraft(
       project.id,
@@ -1529,7 +1624,11 @@ describe("migration: strip the generated period sentence out of itemsNote", () =
     );
     const unrelated = await invoiceService.createDraft(
       project.id,
-      baseInvoiceInput({ invoiceNumber: "TP-03", ...withPeriod, itemsNote: "Retainer month 4" }),
+      baseInvoiceInput({
+        invoiceNumber: "TP-03",
+        ...withPeriod,
+        itemsNote: "Retainer month 4",
+      }),
     );
     const noDates = await invoiceService.createDraft(
       project.id,
@@ -1543,7 +1642,8 @@ describe("migration: strip the generated period sentence out of itemsNote", () =
       where: { id: { in: [exact.id, prefixed.id, unrelated.id, noDates.id] } },
       select: { id: true, itemsNote: true },
     });
-    const noteOf = (id: string) => after.find((row) => row.id === id)?.itemsNote;
+    const noteOf = (id: string) =>
+      after.find((row) => row.id === id)?.itemsNote;
     expect(noteOf(exact.id)).toBeNull();
     expect(noteOf(prefixed.id)).toBe("Retainer month 4");
     expect(noteOf(unrelated.id)).toBe("Retainer month 4");

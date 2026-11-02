@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import type {
   ProjectLedger,
   Party,
+  PartyAddress,
   PaymentMethod,
   Project,
   DisplayCurrency,
@@ -23,6 +24,8 @@ export type ProjectWriteInput = {
   clientId: string;
   contractorId: string;
   preferredPaymentMethodId: string | null;
+  contractorAddressId: string | null;
+  clientAddressId: string | null;
   invoiceNumberFormat: string;
   previousInvoiceNumberFormats: string[];
   invoicePeriodType: InvoicePeriodType | null;
@@ -33,10 +36,32 @@ export type ProjectWriteInput = {
   status: ProjectStatus;
 };
 
+export type PartyWithAddresses = Party & { addresses: PartyAddress[] };
+
+/**
+ * Both parties come with every address they have, plus the project's own
+ * explicit picks, so `resolveProjectAddress` (src/lib/partyAddress.ts) can
+ * fall back to a party's default without another query.
+ */
 export type ProjectWithRelations = Project & {
-  client: Party;
-  contractor: Party;
+  client: PartyWithAddresses;
+  contractor: PartyWithAddresses;
   preferredPaymentMethod: PaymentMethod | null;
+  contractorAddress: PartyAddress | null;
+  clientAddress: PartyAddress | null;
+};
+
+const PARTY_WITH_ADDRESSES = {
+  include: { addresses: { orderBy: { createdAt: "asc" as const } } },
+};
+
+/** The one include every `ProjectWithRelations` query uses — invoiceRepository.findById reuses it for the invoice's project. */
+export const PROJECT_INCLUDE = {
+  client: PARTY_WITH_ADDRESSES,
+  contractor: PARTY_WITH_ADDRESSES,
+  preferredPaymentMethod: true,
+  contractorAddress: true,
+  clientAddress: true,
 };
 
 /**
@@ -58,7 +83,7 @@ function findMany(filters?: {
       ...ledgerWhere(filters?.ledger),
       ...(filters?.status ? { status: filters.status } : {}),
     },
-    include: { client: true, contractor: true, preferredPaymentMethod: true },
+    include: PROJECT_INCLUDE,
     orderBy: { sortOrder: "asc" },
   });
 }
@@ -66,7 +91,7 @@ function findMany(filters?: {
 function findById(id: string): Promise<ProjectWithRelations | null> {
   return prisma.project.findUnique({
     where: { id },
-    include: { client: true, contractor: true, preferredPaymentMethod: true },
+    include: PROJECT_INCLUDE,
   });
 }
 
@@ -165,7 +190,7 @@ function findMissingPreferredPaymentMethod(
       preferredPaymentMethodId: null,
       status: "ACTIVE",
     },
-    include: { client: true, contractor: true, preferredPaymentMethod: true },
+    include: PROJECT_INCLUDE,
     orderBy: { name: "asc" },
   });
 }
@@ -184,7 +209,7 @@ function findRecentlyCreated(
 ): Promise<ProjectWithRelations[]> {
   return prisma.project.findMany({
     where: ledgerWhere(ledger),
-    include: { client: true, contractor: true, preferredPaymentMethod: true },
+    include: PROJECT_INCLUDE,
     orderBy: { createdAt: "desc" },
     take: limit,
   });
@@ -210,6 +235,39 @@ function findByPreferredPaymentMethodIds(
       status: "ACTIVE",
     },
     select: { id: true, name: true, preferredPaymentMethodId: true },
+    orderBy: { name: "asc" },
+  });
+}
+
+/**
+ * Party detail page's Addresses tab — "used by" tags per address, either
+ * side. Same minimal projection and ACTIVE-only scoping as
+ * findByPreferredPaymentMethodIds.
+ */
+function findByAddressIds(addressIds: string[]): Promise<
+  {
+    id: string;
+    name: string;
+    contractorAddressId: string | null;
+    clientAddressId: string | null;
+  }[]
+> {
+  if (addressIds.length === 0) return Promise.resolve([]);
+  return prisma.project.findMany({
+    where: {
+      ...ledgerWhere(),
+      status: "ACTIVE",
+      OR: [
+        { contractorAddressId: { in: addressIds } },
+        { clientAddressId: { in: addressIds } },
+      ],
+    },
+    select: {
+      id: true,
+      name: true,
+      contractorAddressId: true,
+      clientAddressId: true,
+    },
     orderBy: { name: "asc" },
   });
 }
@@ -252,6 +310,7 @@ export const projectRepository = {
   countActive,
   findRecentlyCreated,
   findByPreferredPaymentMethodIds,
+  findByAddressIds,
   findActiveCreatedSince,
   findArchivedSince,
 };

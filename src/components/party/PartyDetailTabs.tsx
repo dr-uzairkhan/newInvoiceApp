@@ -2,10 +2,12 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { withReturnTo } from "@/lib/backNavigation";
 
-export type PartyDetailTab = "overview" | "payment-methods" | "invoices";
+export type PartyDetailTab =
+  "overview" | "addresses" | "payment-methods" | "invoices";
 
 const TABS: { value: PartyDetailTab; label: string }[] = [
   { value: "overview", label: "Overview" },
+  { value: "addresses", label: "Addresses" },
   { value: "payment-methods", label: "Payment Methods" },
   { value: "invoices", label: "Invoices" },
 ];
@@ -19,12 +21,14 @@ const TABS: { value: PartyDetailTab; label: string }[] = [
 export function PartyDetailTabs({
   partyId,
   active,
+  addressesCount,
   paymentMethodsCount,
   invoicesCount,
   returnTo,
 }: {
   partyId: string;
   active: PartyDetailTab;
+  addressesCount: number;
   paymentMethodsCount: number;
   invoicesCount: number;
   /** Carried through to each tab link so switching tabs doesn't drop the back-navigation origin — see `withReturnTo`. */
@@ -44,11 +48,13 @@ export function PartyDetailTabs({
           returnTo,
         );
         const count =
-          tab.value === "payment-methods"
-            ? paymentMethodsCount
-            : tab.value === "invoices"
-              ? invoicesCount
-              : null;
+          tab.value === "addresses"
+            ? addressesCount
+            : tab.value === "payment-methods"
+              ? paymentMethodsCount
+              : tab.value === "invoices"
+                ? invoicesCount
+                : null;
         return (
           <Link
             key={tab.value}

@@ -13,6 +13,7 @@ import {
 import { PartyPickerWithCreateEscape } from "@/components/project/PartyPickerWithCreateEscape";
 import { InvoiceNumberFormatHelp } from "@/components/project/InvoiceNumberFormatHelp";
 import { CreatePaymentMethodDialog } from "@/components/payment-method/CreatePaymentMethodDialog";
+import { PartyAddressDialog } from "@/components/party-address/PartyAddressDialog";
 import { FormField } from "@/components/shared/FormField";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -33,10 +34,17 @@ import {
 } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CircleHelp } from "lucide-react";
-import type { Party, PaymentMethod } from "@/generated/prisma/client";
+import type {
+  Party,
+  PartyAddress,
+  PaymentMethod,
+} from "@/generated/prisma/client";
 
 /** Sentinel for "no preferred payment method" — Select items can't carry an empty-string value. */
 const NO_PAYMENT_METHOD = "__none__";
+
+/** Sentinel for "use the party's default address" — the blank value of the two address pickers. */
+const PARTY_DEFAULT_ADDRESS = "__default__";
 
 /** Sentinel for "no invoice period" — Select items can't carry an empty-string value. */
 const NO_INVOICE_PERIOD = "__none__";
@@ -77,12 +85,14 @@ export function ProjectForm({
   defaultValues,
   initialParties,
   initialPaymentMethodsByPartyId,
+  initialAddressesByPartyId,
 }: {
   mode: "create" | "edit";
   projectId?: string;
   defaultValues?: Partial<ProjectInput>;
   initialParties: Party[];
   initialPaymentMethodsByPartyId: Record<string, PaymentMethod[]>;
+  initialAddressesByPartyId: Record<string, PartyAddress[]>;
 }) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -90,7 +100,14 @@ export function ProjectForm({
   const [paymentMethodsByPartyId, setPaymentMethodsByPartyId] = useState(
     initialPaymentMethodsByPartyId,
   );
+  const [addressesByPartyId, setAddressesByPartyId] = useState(
+    initialAddressesByPartyId,
+  );
   const [paymentMethodDialogOpen, setPaymentMethodDialogOpen] = useState(false);
+  // Which side's "+ Add address" opened the address dialog, if any.
+  const [addressDialogSide, setAddressDialogSide] = useState<
+    "contractor" | "client" | null
+  >(null);
 
   const {
     register,
@@ -109,6 +126,8 @@ export function ProjectForm({
       clientId: "",
       contractorId: "",
       preferredPaymentMethodId: "",
+      contractorAddressId: "",
+      clientAddressId: "",
       invoiceNumberFormat: "{abbreviation}-{number}-{date}",
       previousInvoiceNumberFormats: "",
       ledger: "CLIENT",
@@ -123,13 +142,14 @@ export function ProjectForm({
   });
 
   const contractorId = watch("contractorId");
+  const clientId = watch("clientId");
   const availablePaymentMethods = paymentMethodsByPartyId[contractorId] ?? [];
   const abbreviation = watch("abbreviation");
   const invoiceNumberFormat = watch("invoiceNumberFormat");
   const currencyMode = watch("currencyMode");
   const referralCreditEnabled = watch("referralCreditEnabled");
 
-  function registerNewParty(party: Party) {
+  function registerNewParty(party: Party, defaultAddress: PartyAddress | null) {
     setParties((prev) =>
       [...prev, party].sort((a, b) => a.name.localeCompare(b.name)),
     );
@@ -137,7 +157,37 @@ export function ProjectForm({
       ...prev,
       [party.id]: prev[party.id] ?? [],
     }));
+    setAddressesByPartyId((prev) => ({
+      ...prev,
+      [party.id]: defaultAddress ? [defaultAddress] : (prev[party.id] ?? []),
+    }));
   }
+
+  /** Adds the new address to its party's pool and selects it on the side that asked for it. */
+  function registerNewAddress(address: PartyAddress) {
+    setAddressesByPartyId((prev) => ({
+      ...prev,
+      [address.partyId]: [
+        ...(prev[address.partyId] ?? []).map((existing) =>
+          // The service clears the previous default when a new one is set.
+          address.isDefault ? { ...existing, isDefault: false } : existing,
+        ),
+        address,
+      ],
+    }));
+    if (addressDialogSide === "contractor") {
+      setValue("contractorAddressId", address.id);
+    } else if (addressDialogSide === "client") {
+      setValue("clientAddressId", address.id);
+    }
+  }
+
+  const addressDialogPartyId =
+    addressDialogSide === "contractor"
+      ? contractorId
+      : addressDialogSide === "client"
+        ? clientId
+        : "";
 
   /** M17.4 — adds the new method to the pool and auto-selects it as Preferred, mirroring registerNewParty's auto-select-into-the-triggering-field behavior. */
   function registerNewPaymentMethod(paymentMethod: PaymentMethod) {
@@ -262,9 +312,10 @@ export function ProjectForm({
                   value={field.value}
                   onChange={(id) => {
                     field.onChange(id);
-                    // A payment method scoped to the previous contractor is
-                    // meaningless once the contractor changes.
+                    // A payment method or address scoped to the previous
+                    // contractor is meaningless once the contractor changes.
                     setValue("preferredPaymentMethodId", "");
+                    setValue("contractorAddressId", "");
                   }}
                   onPartyCreated={registerNewParty}
                   error={errors.contractorId?.message}
@@ -279,13 +330,115 @@ export function ProjectForm({
                   label="Client"
                   parties={parties}
                   value={field.value}
-                  onChange={field.onChange}
+                  onChange={(id) => {
+                    field.onChange(id);
+                    setValue("clientAddressId", "");
+                  }}
                   onPartyCreated={registerNewParty}
                   error={errors.clientId?.message}
                 />
               )}
             />
           </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {(
+              [
+                {
+                  side: "contractor",
+                  name: "contractorAddressId",
+                  label: "Contractor Address",
+                  partyId: contractorId,
+                  partyLabel: "contractor",
+                },
+                {
+                  side: "client",
+                  name: "clientAddressId",
+                  label: "Client Address",
+                  partyId: clientId,
+                  partyLabel: "client",
+                },
+              ] as const
+            ).map(({ side, name, label, partyId, partyLabel }) => {
+              const options = addressesByPartyId[partyId] ?? [];
+              const defaultOption = options.find((a) => a.isDefault);
+              const defaultText = defaultOption
+                ? `Party default (${defaultOption.label})`
+                : "Party default (none yet)";
+              return (
+                <FormField
+                  key={name}
+                  label={label}
+                  htmlFor={name}
+                  error={errors[name]?.message}
+                  labelSuffix={
+                    partyId ? (
+                      <button
+                        type="button"
+                        className="ml-auto flex items-center gap-1 text-[11px] font-semibold text-brand hover:underline"
+                        onClick={() => setAddressDialogSide(side)}
+                      >
+                        + Add address
+                      </button>
+                    ) : undefined
+                  }
+                >
+                  <Controller
+                    name={name}
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        value={field.value || PARTY_DEFAULT_ADDRESS}
+                        onValueChange={(value) =>
+                          field.onChange(
+                            value === PARTY_DEFAULT_ADDRESS ? "" : value,
+                          )
+                        }
+                        disabled={!partyId}
+                      >
+                        <SelectTrigger id={name} className="w-full">
+                          <SelectValue
+                            placeholder={
+                              partyId
+                                ? defaultText
+                                : `Select a ${partyLabel} first`
+                            }
+                            renderValue={(value) =>
+                              value === PARTY_DEFAULT_ADDRESS
+                                ? defaultText
+                                : options.find((a) => a.id === value)?.label
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={PARTY_DEFAULT_ADDRESS}>
+                            {defaultText}
+                          </SelectItem>
+                          {options.map((address) => (
+                            <SelectItem key={address.id} value={address.id}>
+                              {address.label}
+                              {address.isDefault ? " (Default)" : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </FormField>
+              );
+            })}
+          </div>
+
+          {addressDialogPartyId ? (
+            <PartyAddressDialog
+              open={addressDialogSide !== null}
+              onOpenChange={(open) => {
+                if (!open) setAddressDialogSide(null);
+              }}
+              partyId={addressDialogPartyId}
+              onSaved={registerNewAddress}
+            />
+          ) : null}
 
           <FormField
             label="Preferred Payment Method"

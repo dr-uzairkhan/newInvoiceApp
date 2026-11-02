@@ -25,11 +25,14 @@ const VIEW_STORAGE_KEY = "parties-view";
 export function PartiesDirectory({
   parties,
   billingRowByPartyId,
+  locationByPartyId,
   filterSlot,
   returnTo,
 }: {
   parties: Party[];
   billingRowByPartyId: Record<string, PartyBillingRow>;
+  /** "City, State, Country" of each party's default address (empty when it has none). */
+  locationByPartyId: Record<string, string>;
   filterSlot?: ReactNode;
   /** This list page's own current path — carried through so back-navigation from a party's detail page returns here. */
   returnTo?: string;
@@ -70,12 +73,14 @@ export function PartiesDirectory({
         <PartyTable
           parties={filtered}
           billingRowByPartyId={billingRowByPartyId}
+          locationByPartyId={locationByPartyId}
           returnTo={returnTo}
         />
       ) : (
         <PartyCardGrid
           parties={filtered}
           billingRowByPartyId={billingRowByPartyId}
+          locationByPartyId={locationByPartyId}
           returnTo={returnTo}
         />
       )}
