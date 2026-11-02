@@ -4,6 +4,7 @@ import type {
   ProjectWithRelations,
 } from "@/repositories/projectRepository";
 import { paymentMethodRepository } from "@/repositories/paymentMethodRepository";
+import { partyAddressRepository } from "@/repositories/partyAddressRepository";
 import type { ProjectInput } from "@/lib/validation/project";
 import type { Project, InvoicePeriodType } from "@/generated/prisma/client";
 import {
@@ -39,6 +40,20 @@ export class PreferredPaymentMethodMismatchError extends Error {
       "The selected preferred payment method doesn't belong to the selected contractor.",
     );
     this.name = "PreferredPaymentMethodMismatchError";
+  }
+}
+
+/**
+ * Thrown when a submitted `contractorAddressId`/`clientAddressId` doesn't
+ * belong to the matching party (Docs/implementation_decisions.md §16) —
+ * the same never-trust-the-client re-check as the payment method above.
+ */
+export class ProjectAddressMismatchError extends Error {
+  constructor(side: "contractor" | "client") {
+    super(
+      `The selected ${side} address doesn't belong to the selected ${side}.`,
+    );
+    this.name = "ProjectAddressMismatchError";
   }
 }
 
@@ -92,6 +107,8 @@ function toWriteInput(input: ProjectInput): ProjectWriteInput {
     clientId: input.clientId,
     contractorId: input.contractorId,
     preferredPaymentMethodId: nullIfEmpty(input.preferredPaymentMethodId),
+    contractorAddressId: nullIfEmpty(input.contractorAddressId),
+    clientAddressId: nullIfEmpty(input.clientAddressId),
     invoiceNumberFormat: input.invoiceNumberFormat,
     previousInvoiceNumberFormats: parsePreviousInvoiceNumberFormats(
       input.previousInvoiceNumberFormats,
@@ -121,6 +138,39 @@ async function assertPreferredPaymentMethodBelongsToContractor(
   if (!paymentMethod || paymentMethod.partyId !== contractorId) {
     throw new PreferredPaymentMethodMismatchError();
   }
+}
+
+/** §16 — each picked address must belong to the party on that side. */
+async function assertAddressBelongsToParty(
+  addressId: string | null,
+  partyId: string,
+  side: "contractor" | "client",
+): Promise<void> {
+  if (!addressId) return;
+  const address = await partyAddressRepository.findById(addressId);
+  if (!address || address.partyId !== partyId) {
+    throw new ProjectAddressMismatchError(side);
+  }
+}
+
+/** Every ownership re-check a create/update runs before writing. */
+async function assertRelationsBelongToParties(
+  data: ProjectWriteInput,
+): Promise<void> {
+  await assertPreferredPaymentMethodBelongsToContractor(
+    data.preferredPaymentMethodId,
+    data.contractorId,
+  );
+  await assertAddressBelongsToParty(
+    data.contractorAddressId,
+    data.contractorId,
+    "contractor",
+  );
+  await assertAddressBelongsToParty(
+    data.clientAddressId,
+    data.clientId,
+    "client",
+  );
 }
 
 function list(filters?: {
@@ -190,6 +240,30 @@ async function listProjectRefsByPreferredPaymentMethod(
   return byPaymentMethodId;
 }
 
+/**
+ * Party detail page's Addresses tab — "used by" tags per address, whichever
+ * side of the project it sits on. Returns { [addressId]: ProjectRef[] }.
+ */
+async function listProjectRefsByAddress(
+  addressIds: string[],
+): Promise<Record<string, ProjectRef[]>> {
+  const projects = await projectRepository.findByAddressIds(addressIds);
+  const wanted = new Set(addressIds);
+  const byAddressId: Record<string, ProjectRef[]> = {};
+  for (const project of projects) {
+    const ref = { id: project.id, name: project.name };
+    for (const addressId of new Set([
+      project.contractorAddressId,
+      project.clientAddressId,
+    ])) {
+      if (addressId && wanted.has(addressId)) {
+        (byAddressId[addressId] ??= []).push(ref);
+      }
+    }
+  }
+  return byAddressId;
+}
+
 function getById(id: string): Promise<ProjectWithRelations | null> {
   return projectRepository.findById(id);
 }
@@ -199,10 +273,7 @@ async function create(
   createdByUserId: string | null = null,
 ): Promise<Project> {
   const data = toWriteInput(input);
-  await assertPreferredPaymentMethodBelongsToContractor(
-    data.preferredPaymentMethodId,
-    data.contractorId,
-  );
+  await assertRelationsBelongToParties(data);
   const maxSortOrder = await projectRepository.findMaxSortOrder();
   return projectRepository.create(
     data,
@@ -242,10 +313,7 @@ async function move(id: string, direction: "up" | "down"): Promise<void> {
 
 async function update(id: string, input: ProjectInput): Promise<Project> {
   const data = toWriteInput(input);
-  await assertPreferredPaymentMethodBelongsToContractor(
-    data.preferredPaymentMethodId,
-    data.contractorId,
-  );
+  await assertRelationsBelongToParties(data);
   // A format change never orphans the numbers issued under the old one: the
   // outgoing format joins the recognised history automatically (most recent
   // first), unless the admin already listed it.
@@ -289,4 +357,5 @@ export const projectService = {
   listMissingPreferredPaymentMethod,
   listRecentlyCreated,
   listProjectRefsByPreferredPaymentMethod,
+  listProjectRefsByAddress,
 };

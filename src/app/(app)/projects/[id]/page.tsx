@@ -22,6 +22,7 @@ import { FileText, Pencil } from "lucide-react";
 import { projectService } from "@/services/projectService";
 import { partyService } from "@/services/partyService";
 import { paymentMethodService } from "@/services/paymentMethodService";
+import { partyAddressService } from "@/services/partyAddressService";
 import { invoiceService } from "@/services/invoiceService";
 import { projectAlertScheduleService } from "@/services/projectAlertScheduleService";
 import { buildProjectBillingRows } from "@/lib/projectBillingStatus";
@@ -393,6 +394,7 @@ async function BillingSetupTab({
   );
   const paymentMethodsByPartyId: Record<string, PaymentMethod[]> =
     Object.fromEntries(paymentMethodEntries);
+  const addressesByPartyId = await partyAddressService.listAllGroupedByParty();
 
   return (
     <>
@@ -423,6 +425,7 @@ async function BillingSetupTab({
         projectId={project.id}
         initialParties={parties}
         initialPaymentMethodsByPartyId={paymentMethodsByPartyId}
+        initialAddressesByPartyId={addressesByPartyId}
         defaultValues={{
           name: project.name,
           abbreviation: project.abbreviation ?? "",
@@ -430,6 +433,8 @@ async function BillingSetupTab({
           clientId: project.clientId,
           contractorId: project.contractorId,
           preferredPaymentMethodId: project.preferredPaymentMethodId ?? "",
+          contractorAddressId: project.contractorAddressId ?? "",
+          clientAddressId: project.clientAddressId ?? "",
           invoiceNumberFormat: project.invoiceNumberFormat,
           previousInvoiceNumberFormats:
             project.previousInvoiceNumberFormats.join("\n"),

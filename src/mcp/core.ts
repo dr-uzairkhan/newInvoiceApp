@@ -16,8 +16,10 @@ import {
 import {
   ProjectDeletionBlockedError,
   PreferredPaymentMethodMismatchError,
+  ProjectAddressMismatchError,
 } from "@/services/projectService";
 import { PartyDeletionBlockedError } from "@/services/partyService";
+import { PartyAddressDeletionBlockedError } from "@/services/partyAddressService";
 import { PaymentMethodDeletionBlockedError } from "@/services/paymentMethodService";
 import {
   InvoiceCommentNotFoundError,
@@ -67,7 +69,10 @@ export type ToolDef<Shape extends ZodRawShape> = {
   };
   /** What the audit row points at, derived from the validated arguments. (Method syntax on purpose: it keeps every concrete `ToolDef<Shape>` assignable to `AnyToolDef` for the registry.) */
   target?(args: z.infer<z.ZodObject<Shape>>): ToolTarget;
-  handler(args: z.infer<z.ZodObject<Shape>>, ctx: ToolContext): Promise<unknown>;
+  handler(
+    args: z.infer<z.ZodObject<Shape>>,
+    ctx: ToolContext,
+  ): Promise<unknown>;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -109,7 +114,10 @@ export function serialize<T>(value: T): unknown {
 }
 
 /** The one place a destructive call's `confirm` flag is checked. */
-export function requireConfirm(confirm: boolean | undefined, what: string): void {
+export function requireConfirm(
+  confirm: boolean | undefined,
+  what: string,
+): void {
   if (confirm !== true) {
     throw new ToolInputError(
       `${what} is irreversible. Call again with confirm: true to proceed.`,
@@ -129,7 +137,9 @@ export function describeKnownError(error: unknown): string | null {
     error instanceof InvoiceSendValidationError ||
     error instanceof ProjectDeletionBlockedError ||
     error instanceof PreferredPaymentMethodMismatchError ||
+    error instanceof ProjectAddressMismatchError ||
     error instanceof PartyDeletionBlockedError ||
+    error instanceof PartyAddressDeletionBlockedError ||
     error instanceof PaymentMethodDeletionBlockedError ||
     error instanceof InvoiceCommentNotFoundError ||
     error instanceof InvoiceCommentDeleteForbiddenError

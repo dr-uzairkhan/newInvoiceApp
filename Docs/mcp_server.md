@@ -33,6 +33,7 @@ Irreversible tools (`delete_*`, `void_invoice`) additionally require `confirm: t
 | --- | --- | --- | --- |
 | Projects (`ledger` param on `list_projects`, defaults to CLIENT) | `list_projects`, `get_project` | `create_project`, `update_project`, `archive_project`, `reorder_project` | `delete_project` |
 | Parties | `list_parties`, `get_party` | `create_party`, `update_party` | `delete_party` |
+| Addresses | `list_addresses` | `create_address`, `update_address`, `set_default_address` | `delete_address` |
 | Payment methods | `list_payment_methods`, `get_payment_method` | `create_payment_method`, `update_payment_method`, `set_default_payment_method` | `delete_payment_method` |
 | Invoices | `list_invoices`, `get_invoice`, `preview_next_invoice_number` | `create_draft_invoice`, `update_draft_invoice`, `mark_invoice_sent`, `mark_invoice_paid` | `void_invoice`, `delete_invoice` |
 | Comments | `list_invoice_comments` | `add_invoice_comment`, `delete_invoice_comment` | — |

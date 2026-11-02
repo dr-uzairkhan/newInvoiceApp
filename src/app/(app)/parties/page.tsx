@@ -10,6 +10,8 @@ import {
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
 import { partyService } from "@/services/partyService";
+import { partyAddressService } from "@/services/partyAddressService";
+import { defaultAddressOf } from "@/lib/partyAddress";
 import { projectService } from "@/services/projectService";
 import { invoiceService } from "@/services/invoiceService";
 import { buildPartyBillingRows } from "@/lib/partyBillingStatus";
@@ -54,11 +56,27 @@ export default async function PartiesPage({
   const filter = resolveFilter(type);
   const cameFromDashboard = from === "dashboard";
 
-  const [parties, allProjects, allInvoices] = await Promise.all([
-    partyService.list(),
-    projectService.list(),
-    invoiceService.list(),
-  ]);
+  const [parties, addressesByPartyId, allProjects, allInvoices] =
+    await Promise.all([
+      partyService.list(),
+      partyAddressService.listAllGroupedByParty(),
+      projectService.list(),
+      invoiceService.list(),
+    ]);
+
+  // "City, State, Country" of each party's default address — the one-line
+  // location the cards and rows show.
+  const locationByPartyId: Record<string, string> = Object.fromEntries(
+    parties.map((party) => {
+      const address = defaultAddressOf(addressesByPartyId[party.id] ?? []);
+      return [
+        party.id,
+        [address?.city, address?.state, address?.country]
+          .filter(Boolean)
+          .join(", "),
+      ];
+    }),
+  );
 
   const billingRows = buildPartyBillingRows({
     parties,
@@ -177,6 +195,7 @@ export default async function PartiesPage({
         <PartiesDirectory
           parties={partiesForFilter}
           billingRowByPartyId={billingRowByPartyId}
+          locationByPartyId={locationByPartyId}
           filterSlot={
             <PartyRelationshipFilter
               active={filter}

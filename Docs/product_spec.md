@@ -10,7 +10,7 @@ This is a database-agnostic logical schema and set of operational workflows for 
 
 Represents any legal individual or organization — the billing entity (contractor) and the paying entity (client) share this single format. **There is no stored role field.** The same `Party` record may be freely used as a `Project`'s contractor, its client, or both — nothing on `Party` itself distinguishes how it's used.
 
-Address is inlined directly onto `Party` — each party has at most one address, so there is no separate `Address` entity.
+Postal addresses live in `PartyAddress` (§1.1.1) — a party may have several, each labelled, with at most one marked as its default.
 
 | Field | Type | Description |
 |---|---|---|
@@ -18,15 +18,30 @@ Address is inlined directly onto `Party` — each party has at most one address,
 | `Name` | Text | Legal entity name or individual's full name. |
 | `Email` | Text, Optional | Primary email address, validated if present. |
 | `Type` | Enum / Text | `INDIVIDUAL` or `ORGANIZATION`. This is the only classification field on `Party` — it is unrelated to how the party is used in a `Project`. |
+| `CreatedAt` | Timestamp | Record initialization date. |
+
+**Deletion**: a `Party` may be deleted only if it is not currently referenced by any `Project` as `ContractorId` or `ClientId` (see §7). Its `PartyAddress` and `PaymentMethod` rows cascade.
+
+### 1.1.1 Entity: PartyAddress
+
+One postal address of a party. A project picks which of each party's addresses its invoices show (§1.3 `ContractorAddressId`/`ClientAddressId`); a project that picks none shows the party's default. All six postal fields are optional individually, but at least one must be filled.
+
+| Field | Type | Description |
+|---|---|---|
+| `Id` | Identifier, Primary Key | Unique address identifier. |
+| `PartyId` | Identifier, Foreign Key → `Party.Id` | The owning party. |
+| `Label` | Text | Short name shown in the project form's picker, e.g. `Head office`. The address entered on the party create form is labelled `Primary` unless the admin names it. |
+| `IsDefault` | Boolean | The address a project falls back to when it picks none. |
 | `Street1` | Text, Optional | Primary street details. |
 | `Street2` | Text, Optional | Unit/suite/secondary street details. |
 | `City` | Text, Optional | City or township. |
 | `State` | Text, Optional | State, province, or region. |
 | `PostalCode` | Text, Optional | Postal or ZIP code. |
 | `Country` | Text, Optional | Country name or standard code. |
-| `CreatedAt` | Timestamp | Record initialization date. |
 
-**Deletion**: a `Party` may be deleted only if it is not currently referenced by any `Project` as `ContractorId` or `ClientId` (see §7).
+**Invariants**: the application enforces at most one `IsDefault` address per `Party` — setting a new default un-sets the prior one — and a party's first address is always made its default.
+
+**Deletion**: a `PartyAddress` may be deleted only if it is not currently set as any `Project`'s `ContractorAddressId` or `ClientAddressId` (see §7). No historical `Invoice` ever blocks deletion, since the address is captured into the detached party snapshots.
 
 ### 1.2 Entity: PaymentMethod
 
@@ -58,6 +73,8 @@ The bridge between a contractor and a client, and the home for per-engagement co
 | `ClientId` | Identifier, Foreign Key → `Party.Id` | The paying party. Any party may fill this role. |
 | `ContractorId` | Identifier, Foreign Key → `Party.Id` | The billing party. Any party may fill this role — including the same party used as `ClientId` on a different project. |
 | `PreferredPaymentMethodId` | Identifier, Foreign Key, Optional → `PaymentMethod.Id` | Must belong to `ContractorId`. Defaults the payout channel for child invoices. |
+| `ContractorAddressId` | Identifier, Foreign Key, Optional → `PartyAddress.Id` | Must belong to `ContractorId`. Which of the contractor's addresses the invoices show; unset means the contractor's default address, resolved at each snapshot. |
+| `ClientAddressId` | Identifier, Foreign Key, Optional → `PartyAddress.Id` | Must belong to `ClientId`. Same rule for the client's address. |
 | `InvoiceNumberFormat` | Text / Configuration | Template for auto-generating invoice numbers, e.g. `{abbreviation}-{number}-{date}`, `TQ-{year_short}/G/{number}` or `{abbreviation}-{year}/{month:MMM}{number:month}`. Recognized placeholders: `{abbreviation}` (resolves from `Project.Abbreviation` above); `{number}` (the project's own sequence, zero-padded to 2 digits), `{number:month}` / `{number:year}` (the same sequence, restarting each calendar month / year — counted by existing invoices' `IssueDate`); `{date}` / `{date:MM-DD-YYYY}` / `{date:DD-MM-YYYY}` / `{date:MM/DD/YYYY}` / `{date:DD/MM/YYYY}` (the issue date, `MM-DD-YYYY` by default); `{year}` (4-digit year), `{year_short}` (last 2 digits — `26` not `2026`); `{month}` (zero-padded), `{month:MMM}` / `{month:Mmm}` / `{month:MMMM}` (`OCT` / `Oct` / `OCTOBER`); `{day}` (zero-padded). All date-derived tokens resolve from the invoice's issue date. Any other `{...}` text is not recognized and passes through as a literal string. |
 | `PreviousInvoiceNumberFormats` | Text list, Optional | Formats this project used before the current one. An invoice number matching any current-or-previous format is recognised as the project's own (no "doesn't continue the last invoice" warning); the sequence still derives from the current format only. The outgoing format is appended automatically whenever `InvoiceNumberFormat` changes; editable on the project form. |
 | `DisplayCurrency` | Enum: `USD`, `AUD`, `GBP`, `NZD`, `AED`, `PKR`, `SAR` | Default `USD`. Its meaning depends on `CurrencyMode` — see §5 (Currency Model). |
@@ -91,8 +108,8 @@ The immutable master ledger entry for a requested payment. Stores flat historica
 | `Currency` | Enum (same values as `DisplayCurrency`) | The currency `Subtotal`/`Total`/item rates are actually denominated in: always `USD` for a `DUAL`-mode project, the project's `DisplayCurrency` for a `SINGLE`-mode one. Derived, not user-edited; locked at `SENT` (§6). |
 | `ConvertedTotal` | Decimal, Optional | Manually entered by the admin when the parent project is `DUAL` currency mode (§5); always `null` for `SINGLE`-mode projects. Not calculated by the system (no exchange-rate lookup in MVP). Snapshotted/locked at the same moment as the rest of the invoice (§6). |
 | `ConvertedCurrency` | Text, Optional | A copy of the project's `DisplayCurrency` at the time the invoice was created/finalized — snapshotted so a later change to the project's setting doesn't retroactively relabel a historical invoice's converted amount. |
-| `FromPartySnapshot` | Object | Copy of the Contractor's Name, Email, and address fields at snapshot time. |
-| `ToPartySnapshot` | Object | Copy of the Client's Name, Email, and address fields at snapshot time. |
+| `FromPartySnapshot` | Object | Copy of the Contractor's Name, Email, and the fields of the address the project resolved to (§1.1.1) at snapshot time — flattened, so a snapshot never references a `PartyAddress` row. |
+| `ToPartySnapshot` | Object | Copy of the Client's Name, Email, and resolved address fields at snapshot time, same shape. |
 | `PaymentDetailsSnapshot` | List of Objects | Copy of the chosen `PaymentMethod.Fields` array. There is **no** `PaymentMethodId` foreign key on `Invoice` — the snapshot alone is sufficient; it exists for historical record-keeping, not detailed audit trails. |
 | `ItemsNote` | Text, Optional | Free-text note describing the line items as a whole, rendered unlabeled/italic below them on the document. Plain admin-authored content, not a snapshot of live external data — ordinary `DRAFT`-editable/locked-once-`SENT` field like `InvoiceNumber`. |
 | `BottomNote` | Text, Optional | A separate, independently-optional free-text note rendered near the bottom of the document (bold label + value), below the totals. Same editability rule as `ItemsNote` — the two are unrelated fields, not a repeat of one value. |
@@ -244,9 +261,9 @@ Unchanged from the original spec:
 
 ### Workflow 1: Onboarding Parties
 
-**Inputs**: Name, `Type` (`INDIVIDUAL`/`ORGANIZATION`), optional Email, optional address fields (Street/City/State/ZIP/Country — one address, inlined). No role is collected — none exists.
+**Inputs**: Name, `Type` (`INDIVIDUAL`/`ORGANIZATION`), optional Email, and an optional first address (label + Street/City/State/ZIP/Country). No role is collected — none exists.
 
-**Execution**: creates a new `Party` row with the address fields inlined directly on it. No dependent `Address` row is created.
+**Execution**: creates a new `Party` row and, if any address field was filled, one default `PartyAddress` for it. Further addresses are added, edited and deleted from the party's Addresses tab; the party edit form covers only Name/Email/Type.
 
 ### Workflow 2: Configuring Contractor Payment Methods
 
@@ -254,9 +271,9 @@ Unchanged from the original spec: select a contractor, pick a template (`BANK_WI
 
 ### Workflow 3: Creating the Project & Establishing Preferences
 
-**Inputs**: Project Name, Client (picked from the full party list), Contractor (picked from the full party list — the same list, no role filtering), optional Preferred Payment Method (must belong to the selected contractor), `InvoiceNumberFormat`, `DisplayCurrency`.
+**Inputs**: Project Name, Client (picked from the full party list), Contractor (picked from the full party list — the same list, no role filtering), optional Preferred Payment Method (must belong to the selected contractor), optional Contractor Address and Client Address (each from that party's own addresses; blank means the party's default), `InvoiceNumberFormat`, `DisplayCurrency`.
 
-**UI requirement**: both the Client and Contractor pickers must offer an inline "**+ Create new party**" escape hatch for when the needed party doesn't exist yet, rather than forcing the admin to abandon the project form.
+**UI requirement**: both the Client and Contractor pickers must offer an inline "**+ Create new party**" escape hatch for when the needed party doesn't exist yet, rather than forcing the admin to abandon the project form. The two address pickers likewise offer "**+ Add address**" for the selected party, and the payment-method picker "**+ Create Payment Method**".
 
 **Verification**: the chosen `PreferredPaymentMethodId` must belong to the specified `ContractorId`.
 
@@ -267,7 +284,7 @@ Unchanged from the original spec: select a contractor, pick a template (`BANK_WI
 **Inputs after project selection** (contractor, client, preferred payment method, and invoice-number format are all pre-filled from the project and not re-entered): auto-generated invoice number (editable while `DRAFT`; if the project's last SENT/PAID invoice's number doesn't structurally fit the project's current `InvoiceNumberFormat` — the format changed, or that invoice was numbered by hand — a small warning names the mismatched number below the field, though the suggestion itself is still generated from the current format), Issue Date, Due Date, an optional `PeriodStart`/`PeriodEnd` (defaults: `PeriodStart` chains off the project's last SENT/PAID invoice's `PeriodEnd` + 1 day, or blank for a project's first invoice; `PeriodEnd` defaults to Issue Date, both freely overridable), an array of line items (Description, Quantity, UnitPrice), and — only if the project's `DisplayCurrency` is not `USD` — a manually-entered `ConvertedTotal`. Once both period fields are set, `ItemsNote` is pre-filled with a plain-English sentence describing them (create mode only, and only until manually edited) — there is no separate "billing period" field on the invoice document itself, this is the only surface that renders it.
 
 **Assembly**:
-1. **Context Lookup** — resolve the parent project's contractor/client/payment-method configuration.
+1. **Context Lookup** — resolve the parent project's contractor/client/payment-method configuration, including which address each party shows (the project's pick, else that party's default).
 2. **Calculation** — `Amount = Quantity × UnitPrice` per line, summed into `Subtotal`; `Total = Subtotal` (no tax).
 3. **Snapshot Compression** — while `DRAFT`, snapshot fields are (re)computed from current live data on every save; there is no separate "refresh" action. At the moment the admin finalizes the invoice (`DRAFT → SENT`), the snapshot — including `ConvertedTotal`/`ConvertedCurrency` if applicable — is permanently locked.
 4. **Atomic Ledger Commit** — the `Invoice` and its `InvoiceItem` rows are created in a single Prisma transaction.
@@ -308,6 +325,7 @@ Deletion is governed entirely by **live** foreign-key references — never by hi
 - `Project`: deletable only with zero `Invoice` rows. No cascading delete — the admin must delete dependent invoices first.
 - `Party`: deletable only while not set as any `Project`'s `ContractorId`/`ClientId`.
 - `PaymentMethod`: deletable only while not set as any `Project`'s `PreferredPaymentMethodId`.
+- `PartyAddress`: deletable only while not set as any `Project`'s `ContractorAddressId`/`ClientAddressId`. Cascades when the parent `Party` is deleted.
 - `Invoice` *(resolved during blueprint planning — see `Docs/implementation_decisions.md` §22, not explicit in the original spec)*: deletable in **any** status, with an admin confirmation prompt; `InvoiceItem` rows cascade. This is the mechanism that makes the `Project` deletion rule above actually satisfiable.
 - `ProjectAlertSchedule`: deletable freely by the admin at any time — nothing ever references it live. Cascades automatically when the parent `Project` is deleted.
 
@@ -356,4 +374,4 @@ Both Excel and PDF generation must use only the saved invoice record and its sna
 
 ## 13. Implementation Boundary
 
-The first version remains a single-tenant modular monolith. Do not introduce, beyond what's specified here: tenant tables, organization workspaces, multi-tenant row isolation, multi-organization membership, per-tenant billing, separate backend microservices, tax fields/calculation, logo support, party role classification, multi-address support, live exchange-rate fetching, or AI entity-resolution/fuzzy-matching against the database. All of these were explicitly considered and cut for MVP — see `Docs/implementation_decisions.md` for each.
+The first version remains a single-tenant modular monolith. Do not introduce, beyond what's specified here: tenant tables, organization workspaces, multi-tenant row isolation, multi-organization membership, per-tenant billing, separate backend microservices, tax fields/calculation, logo support, party role classification, live exchange-rate fetching, or AI entity-resolution/fuzzy-matching against the database. All of these were explicitly considered and cut for MVP — see `Docs/implementation_decisions.md` for each.

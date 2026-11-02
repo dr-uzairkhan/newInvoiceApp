@@ -2,6 +2,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { ProjectForm } from "@/components/project/ProjectForm";
 import { partyService } from "@/services/partyService";
 import { paymentMethodService } from "@/services/paymentMethodService";
+import { partyAddressService } from "@/services/partyAddressService";
 import type { PaymentMethod } from "@/generated/prisma/client";
 
 export default async function NewProjectPage({
@@ -22,11 +23,16 @@ export default async function NewProjectPage({
   );
   const paymentMethodsByPartyId: Record<string, PaymentMethod[]> =
     Object.fromEntries(paymentMethodEntries);
+  const addressesByPartyId = await partyAddressService.listAllGroupedByParty();
 
   return (
     <>
       <PageHeader
-        title={presetLedger === "INTERNAL" ? "Create Internal Project" : "Create Project"}
+        title={
+          presetLedger === "INTERNAL"
+            ? "Create Internal Project"
+            : "Create Project"
+        }
         subtitle={
           presetLedger === "INTERNAL"
             ? "An internal project issues on-demand invoices and stays off the main dashboard, lists and counts."
@@ -40,6 +46,7 @@ export default async function NewProjectPage({
         defaultValues={{ ledger: presetLedger }}
         initialParties={parties}
         initialPaymentMethodsByPartyId={paymentMethodsByPartyId}
+        initialAddressesByPartyId={addressesByPartyId}
       />
     </>
   );

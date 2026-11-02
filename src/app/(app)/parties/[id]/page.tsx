@@ -9,19 +9,27 @@ import {
   type PartyDetailTab,
 } from "@/components/party/PartyDetailTabs";
 import { PaymentMethodList } from "@/components/payment-method/PaymentMethodList";
+import { PartyAddressList } from "@/components/party-address/PartyAddressList";
 import { InvoiceTable } from "@/components/invoice/InvoiceTable";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
 import { partyService } from "@/services/partyService";
 import { paymentMethodService } from "@/services/paymentMethodService";
+import { partyAddressService } from "@/services/partyAddressService";
 import { projectService } from "@/services/projectService";
 import { invoiceService } from "@/services/invoiceService";
 import { buildInvoiceTableRows } from "@/lib/invoiceTableRows";
 import { resolveBackTarget, withReturnTo } from "@/lib/backNavigation";
-import type { Party } from "@/generated/prisma/client";
+import type { Party, PartyAddress } from "@/generated/prisma/client";
 
 function resolveTab(value: string | undefined): PartyDetailTab {
-  if (value === "payment-methods" || value === "invoices") return value;
+  if (
+    value === "addresses" ||
+    value === "payment-methods" ||
+    value === "invoices"
+  ) {
+    return value;
+  }
   return "overview";
 }
 
@@ -51,7 +59,7 @@ export default async function PartyDetailPage({
       <>
         <PageHeader
           title={party.name}
-          subtitle="Edit party details and address."
+          subtitle="Edit party details."
           backHref={back.href}
           backLabel={back.label}
           action={
@@ -73,29 +81,25 @@ export default async function PartyDetailPage({
             name: party.name,
             email: party.email ?? "",
             type: party.type,
-            street1: party.street1 ?? "",
-            street2: party.street2 ?? "",
-            city: party.city ?? "",
-            state: party.state ?? "",
-            postalCode: party.postalCode ?? "",
-            country: party.country ?? "",
           }}
         />
       </>
     );
   }
 
-  const [isDeletable, paymentMethodsCount, invoicesCount] = await Promise.all([
-    partyService.isDeletable(id),
-    paymentMethodService.countForParty(id),
-    invoiceService.countByParty(id),
-  ]);
+  const [isDeletable, addresses, paymentMethodsCount, invoicesCount] =
+    await Promise.all([
+      partyService.isDeletable(id),
+      partyAddressService.listForParty(id),
+      paymentMethodService.countForParty(id),
+      invoiceService.countByParty(id),
+    ]);
 
   return (
     <>
       <PageHeader
         title={party.name}
-        subtitle="View party details and address."
+        subtitle="View party details, addresses and payment methods."
         backHref={back.href}
         backLabel={back.label}
         action={
@@ -109,6 +113,7 @@ export default async function PartyDetailPage({
       <PartyDetailTabs
         partyId={party.id}
         active={tab}
+        addressesCount={addresses.length}
         paymentMethodsCount={paymentMethodsCount}
         invoicesCount={invoicesCount}
         returnTo={returnTo}
@@ -117,16 +122,64 @@ export default async function PartyDetailPage({
       {tab === "overview" ? (
         <PartyDetailCard
           party={party}
+          addresses={addresses}
           editHref={withReturnTo(
             `/parties/${party.id}?tab=overview&edit=1`,
             returnTo,
           )}
+          returnTo={returnTo}
         />
+      ) : tab === "addresses" ? (
+        <AddressesTab party={party} addresses={addresses} returnTo={returnTo} />
       ) : tab === "payment-methods" ? (
         <PaymentMethodsTab party={party} returnTo={returnTo} />
       ) : (
         <InvoicesTab party={party} returnTo={returnTo} />
       )}
+    </>
+  );
+}
+
+/** The party's addresses (already fetched for the tab badge) with each one's live project references. */
+async function AddressesTab({
+  party,
+  addresses,
+  returnTo,
+}: {
+  party: Party;
+  addresses: PartyAddress[];
+  returnTo?: string;
+}) {
+  const [deletableFlags, projectRefsByAddressId] = await Promise.all([
+    Promise.all(
+      addresses.map((address) => partyAddressService.isDeletable(address.id)),
+    ),
+    projectService.listProjectRefsByAddress(
+      addresses.map((address) => address.id),
+    ),
+  ]);
+  const deletableIds = new Set(
+    addresses
+      .filter((_, index) => deletableFlags[index])
+      .map((address) => address.id),
+  );
+
+  return (
+    <>
+      <div className="mb-1 flex items-center justify-between">
+        <h2 className="text-[15px] font-bold text-foreground">Addresses</h2>
+      </div>
+      <p className="mb-3 text-[11px] text-muted-foreground">
+        A party can have several addresses. Each project picks which one its
+        invoices show, falling back to the default when it doesn&rsquo;t.
+      </p>
+      <PartyAddressList
+        partyId={party.id}
+        addresses={addresses}
+        deletableIds={deletableIds}
+        projectRefsByAddressId={projectRefsByAddressId}
+        returnTo={returnTo}
+      />
     </>
   );
 }

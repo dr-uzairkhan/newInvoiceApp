@@ -4,6 +4,7 @@ import {
   partyService,
   PartyDeletionBlockedError,
 } from "@/services/partyService";
+import { partyAddressService } from "@/services/partyAddressService";
 import { prisma } from "@/lib/prisma";
 import type { PartyInput } from "@/lib/validation/party";
 
@@ -16,6 +17,7 @@ function baseInput(overrides: Partial<PartyInput> = {}): PartyInput {
     name: "[test] Party",
     email: "",
     type: "ORGANIZATION",
+    addressLabel: "",
     street1: "",
     street2: "",
     city: "",
@@ -49,12 +51,13 @@ afterAll(async () => {
 });
 
 describe("partyService", () => {
-  it("creates a party with all fields, including address", async () => {
+  it("creates a party with its first address as the default PartyAddress", async () => {
     const party = await partyService.create(
       baseInput({
         name: "Test Contractor LLC",
         email: "hello@test-contractor.example",
         type: "ORGANIZATION",
+        addressLabel: "Head office",
         street1: "1 Main St",
         city: "Springfield",
         state: "IL",
@@ -66,32 +69,50 @@ describe("partyService", () => {
 
     expect(party.name).toBe("Test Contractor LLC");
     expect(party.email).toBe("hello@test-contractor.example");
-    expect(party.street1).toBe("1 Main St");
-    expect(party.city).toBe("Springfield");
+
+    const addresses = await partyAddressService.listForParty(party.id);
+    expect(addresses).toHaveLength(1);
+    expect(addresses[0]).toMatchObject({
+      label: "Head office",
+      isDefault: true,
+      street1: "1 Main St",
+      street2: null,
+      city: "Springfield",
+      country: "USA",
+    });
   });
 
-  it("creates a party with empty optional fields stored as null, not empty string", async () => {
-    const party = await partyService.create(baseInput({ name: "Bare Party" }));
-    createdPartyIds.push(party.id);
+  it('labels the first address "Primary" when no label is given, and creates none when every address field is blank', async () => {
+    const withAddress = await partyService.create(
+      baseInput({ name: "Just A City", city: "Austin" }),
+    );
+    const bare = await partyService.create(baseInput({ name: "Bare Party" }));
+    createdPartyIds.push(withAddress.id, bare.id);
 
-    expect(party.email).toBeNull();
-    expect(party.street1).toBeNull();
-    expect(party.city).toBeNull();
+    expect(bare.email).toBeNull();
+    const labelled = await partyAddressService.listForParty(withAddress.id);
+    expect(labelled.map((a) => a.label)).toEqual(["Primary"]);
+    await expect(partyAddressService.listForParty(bare.id)).resolves.toEqual(
+      [],
+    );
   });
 
-  it("updates a party's fields", async () => {
+  it("updates a party's own fields without touching its addresses", async () => {
     const party = await partyService.create(
-      baseInput({ name: "Original Name" }),
+      baseInput({ name: "Original Name", city: "Austin" }),
     );
     createdPartyIds.push(party.id);
 
-    const updated = await partyService.update(
-      party.id,
-      baseInput({ name: "Renamed", city: "Austin" }),
-    );
+    const updated = await partyService.update(party.id, {
+      name: "Renamed",
+      email: "renamed@test.example",
+      type: "INDIVIDUAL",
+    });
 
     expect(updated.name).toBe("Renamed");
-    expect(updated.city).toBe("Austin");
+    expect(updated.type).toBe("INDIVIDUAL");
+    const addresses = await partyAddressService.listForParty(party.id);
+    expect(addresses.map((a) => a.city)).toEqual(["Austin"]);
   });
 
   it("clears a previously-set optional field to null when edited to empty", async () => {

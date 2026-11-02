@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/card";
 import { DetailField } from "@/components/shared/DetailField";
 import { withReturnTo } from "@/lib/backNavigation";
+import { describeProjectAddress } from "@/lib/partyAddress";
 import type { ProjectWithRelations } from "@/repositories/projectRepository";
 
 const CURRENCY_MODE_LABELS: Record<
@@ -61,6 +62,10 @@ export function ProjectSummary({
         <DetailField
           label="Payment method"
           value={project.preferredPaymentMethod?.label ?? "None set"}
+        />
+        <DetailField
+          label="Addresses"
+          value={`From ${describeProjectAddress(project, "contractor")} · To ${describeProjectAddress(project, "client")}`}
         />
         <DetailField
           label="Currency"

@@ -1,6 +1,8 @@
 import { partyRepository } from "@/repositories/partyRepository";
 import type { PartyWriteInput } from "@/repositories/partyRepository";
-import type { PartyInput } from "@/lib/validation/party";
+import type { PartyCoreInput, PartyInput } from "@/lib/validation/party";
+import { hasAnyAddressField } from "@/lib/validation/partyAddress";
+import { toAddressWriteFields } from "@/services/partyAddressService";
 import type { Party } from "@/generated/prisma/client";
 
 /**
@@ -17,21 +19,15 @@ export class PartyDeletionBlockedError extends Error {
   }
 }
 
-/** Empty-string optional fields become `null`, never left `undefined` — see partyRepository. */
-function toWriteInput(input: PartyInput): PartyWriteInput {
-  const nullIfEmpty = (value: string | undefined) =>
-    value && value.length > 0 ? value : null;
+/** Label given to the address entered on the party create form when the admin leaves its label blank. */
+export const DEFAULT_ADDRESS_LABEL = "Primary";
 
+/** Empty-string optional fields become `null`, never left `undefined` — see partyRepository. */
+function toWriteInput(input: PartyCoreInput): PartyWriteInput {
   return {
     name: input.name,
-    email: nullIfEmpty(input.email),
+    email: input.email && input.email.length > 0 ? input.email : null,
     type: input.type,
-    street1: nullIfEmpty(input.street1),
-    street2: nullIfEmpty(input.street2),
-    city: nullIfEmpty(input.city),
-    state: nullIfEmpty(input.state),
-    postalCode: nullIfEmpty(input.postalCode),
-    country: nullIfEmpty(input.country),
   };
 }
 
@@ -43,11 +39,24 @@ function getById(id: string): Promise<Party | null> {
   return partyRepository.findById(id);
 }
 
+/**
+ * The create form's optional first address becomes the party's default
+ * `PartyAddress` when any of its fields is filled in (Docs/
+ * implementation_decisions.md §16); an all-blank block creates nothing.
+ */
 function create(input: PartyInput): Promise<Party> {
-  return partyRepository.create(toWriteInput(input));
+  const initialAddress = hasAnyAddressField(input)
+    ? {
+        label: input.addressLabel || DEFAULT_ADDRESS_LABEL,
+        isDefault: true,
+        ...toAddressWriteFields(input),
+      }
+    : null;
+  return partyRepository.create(toWriteInput(input), initialAddress);
 }
 
-function update(id: string, input: PartyInput): Promise<Party> {
+/** Only the party's own fields — addresses are edited through partyAddressService. */
+function update(id: string, input: PartyCoreInput): Promise<Party> {
   return partyRepository.update(id, toWriteInput(input));
 }
 
