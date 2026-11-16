@@ -354,4 +354,14 @@ describe("invoiceSchema", () => {
     );
     expect(result.success).toBe(false);
   });
+
+  it("accepts showPeriodLine as a boolean or omitted, never as a string", () => {
+    expect(invoiceSchema.safeParse(baseInput()).success).toBe(true);
+    expect(
+      invoiceSchema.safeParse(baseInput({ showPeriodLine: true })).success,
+    ).toBe(true);
+    expect(
+      invoiceSchema.safeParse(baseInput({ showPeriodLine: "yes" })).success,
+    ).toBe(false);
+  });
 });

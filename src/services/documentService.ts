@@ -1,5 +1,5 @@
 import type { InvoiceStatus } from "@/generated/prisma/client";
-import { formatDisplayDate } from "@/lib/dates";
+import { buildPeriodLine } from "@/lib/invoicePeriod";
 import type { InvoiceWithItems } from "@/repositories/invoiceRepository";
 import type { PaymentMethodField } from "@/repositories/paymentMethodRepository";
 import { decryptSecretOrRaw } from "@/lib/crypto/settingsEncryption";
@@ -42,11 +42,12 @@ export type InvoiceDocumentData = {
   /** M48 — true when every item is Flat-amount (including the referral-credit row, if any); drives the single-Duration-column table layout shared by the preview, both PDF renderers, and Excel. */
   allItemsFlat: boolean;
   /**
-   * "Covers services rendered <start> – <end>." when both `periodStart` and
-   * `periodEnd` are set, else null. Printed by the preview, both PDF
-   * renderers and Excel directly above `itemsNote`, so the document always
-   * reflects the structured period fields rather than text typed at create
-   * time (`Docs/implementation_decisions.md` §26).
+   * "Covers services rendered <start> – <end>." when the invoice opts in
+   * (`showPeriodLine`) and both `periodStart` and `periodEnd` are set, else
+   * null. Printed by the preview, both PDF renderers and Excel directly
+   * above `itemsNote`, so the document always reflects the structured period
+   * fields rather than text typed at create time
+   * (`Docs/implementation_decisions.md` §26).
    */
   periodLine: string | null;
   itemsNote: string | null;
@@ -57,6 +58,9 @@ export type InvoiceDocumentData = {
   convertedCurrency: string | null;
   bottomNote: string | null;
 };
+
+/** Re-exported for callers that already import document helpers from here; the builder itself lives in `@/lib/invoicePeriod`. */
+export { buildPeriodLine };
 
 /**
  * The single view-model assembler consumed
@@ -88,15 +92,6 @@ export type InvoiceDocumentData = {
  * `allItemsFlat` (M48) is computed once here, not independently by each
  * renderer, so the preview/PDF/Excel table layout can never diverge.
  */
-/** Exported so the form and any future caller can show the exact sentence the document will print. */
-export function buildPeriodLine(
-  periodStart: Date | null,
-  periodEnd: Date | null,
-): string | null {
-  if (!periodStart || !periodEnd) return null;
-  return `Covers services rendered ${formatDisplayDate(periodStart)} – ${formatDisplayDate(periodEnd)}.`;
-}
-
 function assembleInvoiceDocumentData(
   invoice: InvoiceWithItems,
 ): InvoiceDocumentData {
@@ -129,7 +124,9 @@ function assembleInvoiceDocumentData(
         durationText: item.durationText,
       })),
     allItemsFlat: invoice.items.every((item) => item.isFlatAmount),
-    periodLine: buildPeriodLine(invoice.periodStart, invoice.periodEnd),
+    periodLine: invoice.showPeriodLine
+      ? buildPeriodLine(invoice.periodStart, invoice.periodEnd)
+      : null,
     itemsNote: invoice.itemsNote,
     subtotal: invoice.subtotal.toString(),
     total: invoice.total.toString(),

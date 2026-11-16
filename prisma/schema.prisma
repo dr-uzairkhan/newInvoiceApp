@@ -279,6 +279,11 @@ model Invoice {
   /// constraint between them, only app-level validation.
   periodStart DateTime? @db.Date
   periodEnd DateTime? @db.Date
+  /// Whether the document prints the "Covers services rendered …" sentence
+  /// built from periodStart/periodEnd. Off by default: the dates still feed
+  /// the dashboard's "period covered" views, printing them is a per-invoice
+  /// opt-in (Docs/implementation_decisions.md §26).
+  showPeriodLine Boolean @default(false)
   subtotal Decimal @db.Decimal(12, 2)
   total Decimal @db.Decimal(12, 2)
   currency DisplayCurrency @default(USD)

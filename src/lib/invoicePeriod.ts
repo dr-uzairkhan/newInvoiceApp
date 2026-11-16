@@ -1,4 +1,19 @@
 import type { InvoicePeriodType } from "@/generated/prisma/client";
+import { formatDisplayDate } from "@/lib/dates";
+
+/**
+ * The one sentence the invoice document prints for a billing period, when
+ * the invoice opts in (`showPeriodLine`). Lives here, not in
+ * `documentService`, so the create/edit form can preview the exact text
+ * beside its checkbox without pulling repositories into a client bundle.
+ */
+export function buildPeriodLine(
+  periodStart: Date | null,
+  periodEnd: Date | null,
+): string | null {
+  if (!periodStart || !periodEnd) return null;
+  return `Covers services rendered ${formatDisplayDate(periodStart)} – ${formatDisplayDate(periodEnd)}.`;
+}
 
 /**
  * M19.2a — labels for the ProjectForm (Billing setup tab) dropdown. Each

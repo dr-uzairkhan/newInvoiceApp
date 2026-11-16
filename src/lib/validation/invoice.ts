@@ -117,6 +117,13 @@ export const invoiceBaseSchema = z.object({
    */
   periodStart: z.string().trim().optional().or(z.literal("")),
   periodEnd: z.string().trim().optional().or(z.literal("")),
+  /**
+   * Whether the document prints the "Covers services rendered …" sentence
+   * built from the two period dates. Optional rather than `.default(false)`
+   * for the same zod input/output-type reason as `isReferralCredit` above;
+   * every read site treats `undefined` as `false`.
+   */
+  showPeriodLine: z.boolean().optional(),
   convertedTotal: z
     .string()
     .trim()
