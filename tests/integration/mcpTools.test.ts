@@ -522,6 +522,7 @@ describe("mcp tools — rule enforcement", () => {
           dueDate: "2026-02-15",
           periodStart: "2026-01-01",
           periodEnd: "2026-01-31",
+          showPeriodLine: true,
           items: [
             {
               description: "Work",
@@ -600,6 +601,7 @@ describe("mcp tools — rule enforcement", () => {
 
     const detail = await call(getInvoice, { invoiceId: draft.id }, admin);
     expect(detail.data.invoice.periodStart).toContain("2026-01-01");
+    expect(detail.data.invoice.showPeriodLine).toBe(true);
     expect(JSON.stringify(detail.data)).not.toContain("paymentDetails");
 
     const pdf = await executeTool(

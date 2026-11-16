@@ -34,6 +34,7 @@ export type InvoiceWriteInput = {
   dueDate: Date;
   periodStart: Date | null;
   periodEnd: Date | null;
+  showPeriodLine: boolean;
   subtotal: Prisma.Decimal;
   total: Prisma.Decimal;
   currency: DisplayCurrency;

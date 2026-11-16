@@ -248,6 +248,7 @@ function toWriteInput(
     dueDate: new Date(input.dueDate),
     periodStart: input.periodStart ? new Date(input.periodStart) : null,
     periodEnd: input.periodEnd ? new Date(input.periodEnd) : null,
+    showPeriodLine: input.showPeriodLine ?? false,
     subtotal,
     total: subtotal, // Docs/implementation_decisions.md §13 — no tax, Total always equals Subtotal.
     currency: resolveInvoiceCurrency(project),

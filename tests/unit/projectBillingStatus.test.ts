@@ -28,6 +28,7 @@ function invoice(overrides: Partial<InvoiceListItem>): InvoiceListItem {
     paymentDetailsSnapshot: [],
     itemsNote: null,
     bottomNote: null,
+    showPeriodLine: false,
     createdAt: new Date("2026-01-01"),
     updatedAt: new Date("2026-01-01"),
     projectId: "project-1",

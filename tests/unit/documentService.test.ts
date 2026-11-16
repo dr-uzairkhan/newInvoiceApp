@@ -18,6 +18,7 @@ function fakeInvoice(
     dueDate: new Date("2026-01-15"),
     periodStart: null,
     periodEnd: null,
+    showPeriodLine: false,
     subtotal: new Prisma.Decimal("300"),
     total: new Prisma.Decimal("300"),
     currency: "USD",
@@ -308,25 +309,49 @@ describe("documentService.assembleInvoiceDocumentData — period line", () => {
   it("derives the period sentence from periodStart/periodEnd, independent of itemsNote", () => {
     const data = documentService.assembleInvoiceDocumentData(
       fakeInvoice({
+        showPeriodLine: true,
         periodStart: new Date("2026-07-01T00:00:00.000Z"),
         periodEnd: new Date("2026-07-31T00:00:00.000Z"),
         itemsNote: "Retainer month 4",
       }),
     );
-    expect(data.periodLine).toBe("Covers services rendered Jul 1, 2026 – Jul 31, 2026.");
+    expect(data.periodLine).toBe(
+      "Covers services rendered Jul 1, 2026 – Jul 31, 2026.",
+    );
     expect(data.itemsNote).toBe("Retainer month 4");
   });
 
   it("leaves periodLine null unless both period bounds are set", () => {
     expect(
       documentService.assembleInvoiceDocumentData(
-        fakeInvoice({ periodStart: new Date("2026-07-01T00:00:00.000Z"), periodEnd: null }),
+        fakeInvoice({
+          showPeriodLine: true,
+          periodStart: new Date("2026-07-01T00:00:00.000Z"),
+          periodEnd: null,
+        }),
       ).periodLine,
     ).toBeNull();
     expect(
       documentService.assembleInvoiceDocumentData(
-        fakeInvoice({ periodStart: null, periodEnd: null }),
+        fakeInvoice({
+          showPeriodLine: true,
+          periodStart: null,
+          periodEnd: null,
+        }),
       ).periodLine,
     ).toBeNull();
+  });
+
+  it("leaves periodLine null when the invoice has not opted in, even with both dates set", () => {
+    const data = documentService.assembleInvoiceDocumentData(
+      fakeInvoice({
+        showPeriodLine: false,
+        periodStart: new Date("2026-07-01T00:00:00.000Z"),
+        periodEnd: new Date("2026-07-31T00:00:00.000Z"),
+        itemsNote: "Retainer month 4",
+      }),
+    );
+    expect(data.periodLine).toBeNull();
+    expect(data.itemsNote).toBe("Retainer month 4");
   });
 });

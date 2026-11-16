@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { invoiceSchema, type InvoiceInput } from "@/lib/validation/invoice";
@@ -16,18 +16,20 @@ import { LineItemsEditor } from "@/components/invoice/LineItemsEditor";
 import { FormField } from "@/components/shared/FormField";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { InvoiceAutofillData } from "@/services/invoiceService";
-import { computeDueDate } from "@/lib/invoicePeriod";
+import { buildPeriodLine, computeDueDate } from "@/lib/invoicePeriod";
 import { withReturnTo, resolveBackTarget } from "@/lib/backNavigation";
 import type {
   DisplayCurrency,
   InvoicePeriodType,
   ProjectCurrencyMode,
 } from "@/generated/prisma/client";
-import { Sparkles } from "lucide-react";
+import { Sparkles, X } from "lucide-react";
 import { ImproveTextButton } from "@/components/invoice/ImproveTextButton";
+import { updateNoteDatesAction } from "@/actions/aiText.actions";
 import type { ImproveTextField } from "@/services/aiTextService";
 
 export type InvoiceFormProjectInfo = {
@@ -206,6 +208,7 @@ export function InvoiceForm({
       dueDate: "",
       periodStart: "",
       periodEnd: "",
+      showPeriodLine: false,
       convertedTotal: "",
       itemsNote: "",
       bottomNote: "",
@@ -235,6 +238,18 @@ export function InvoiceForm({
    */
   const lastAutoDueDateRef = useRef<string | undefined>(getValues("dueDate"));
   const issueDate = watch("issueDate");
+  const periodStart = watch("periodStart");
+  const periodEnd = watch("periodEnd");
+  /** The exact sentence the document will print if the checkbox below is on; null until both dates are set. */
+  const periodLinePreview = (() => {
+    if (!periodStart || !periodEnd) return null;
+    const start = new Date(periodStart);
+    const end = new Date(periodEnd);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      return null;
+    }
+    return buildPeriodLine(start, end);
+  })();
 
   useEffect(() => {
     if (mode !== "create" || !project.invoicePeriodType || !issueDate) return;
@@ -274,9 +289,12 @@ export function InvoiceForm({
     if (getValues("invoiceNumber") !== lastAutoInvoiceNumberRef.current) return;
     void previewInvoiceNumberAction(projectId, issueDate).then((result) => {
       if (run !== numberPreviewRunsRef.current || !result.success) return;
-      if (getValues("invoiceNumber") !== lastAutoInvoiceNumberRef.current) return;
+      if (getValues("invoiceNumber") !== lastAutoInvoiceNumberRef.current)
+        return;
       lastAutoInvoiceNumberRef.current = result.data.suggested;
-      setValue("invoiceNumber", result.data.suggested, { shouldValidate: true });
+      setValue("invoiceNumber", result.data.suggested, {
+        shouldValidate: true,
+      });
       setNumberConflict(result.data.conflictingLastInvoiceNumber);
     });
   }, [issueDate, mode, projectId, getValues, setValue]);
@@ -322,6 +340,44 @@ export function InvoiceForm({
     setImprovedField(name);
     window.setTimeout(() => setImprovedField(null), 1500);
   }
+  /**
+   * Both invoice notes can arrive pre-filled (Autofill carries them over
+   * from the previous invoice), so each gets a one-click "Clear" beside
+   * "Improve" whenever it holds text — keeping or dropping a carried-over
+   * note is always one click, not a select-all-and-delete.
+   */
+  const itemsNoteValue = watch("itemsNote");
+  const bottomNoteValue = watch("bottomNote");
+  function noteLabelActions(
+    field: "itemsNote" | "bottomNote",
+    value: string | undefined,
+  ) {
+    const improve = improveButton(field, field);
+    const clear = value?.trim() ? (
+      <Button
+        type="button"
+        variant="ghost"
+        size="xs"
+        className="h-5 px-1.5 text-[10px] font-semibold normal-case tracking-normal text-muted-foreground"
+        onClick={() =>
+          setValue(field, "", { shouldValidate: true, shouldDirty: true })
+        }
+        aria-label={
+          field === "itemsNote" ? "Clear the items note" : "Clear the note"
+        }
+      >
+        <X className="h-3 w-3" />
+        Clear
+      </Button>
+    ) : null;
+    if (!improve && !clear) return null;
+    return (
+      <span className="inline-flex items-center gap-1">
+        {improve}
+        {clear}
+      </span>
+    );
+  }
   function improveButton(
     field: ImproveTextField,
     name: "itemsNote" | "bottomNote" | `items.${number}.description`,
@@ -338,22 +394,43 @@ export function InvoiceForm({
 
   /**
    * M18 (Autofill) — items/notes only; invoiceNumber/dates/convertedTotal
-   * are left exactly as they are. Every autofilled field is copied over
-   * verbatim: `itemsNote` is plain free text (the billing period is printed
-   * from the structured period fields, not from this note).
+   * are left exactly as they are. Items and the bottom note are copied
+   * verbatim. The items note is carried over too, but when it mentions
+   * dates they belong to the previous invoice's period, so with an AI
+   * provider configured and both period dates set the note goes through
+   * `updateNoteDatesAction` first; any failure falls back to the verbatim
+   * copy (Docs/implementation_decisions.md §19, §26).
    */
-  function handleAutofill() {
+  async function handleAutofill() {
     if (!autofillData) return;
     setAutofillPending(true);
+    try {
+      let itemsNote = autofillData.itemsNote;
+      let datesUpdated = false;
+      const start = getValues("periodStart");
+      const end = getValues("periodEnd");
+      if (aiConfigured && itemsNote.trim() && start && end) {
+        const result = await updateNoteDatesAction(itemsNote, start, end);
+        if (result.success) {
+          datesUpdated = result.data.text !== itemsNote.trim();
+          itemsNote = result.data.text;
+        }
+      }
 
-    reset({
-      ...getValues(),
-      items: autofillData.items,
-      itemsNote: autofillData.itemsNote,
-      bottomNote: autofillData.bottomNote,
-    });
-    setAutofillPending(false);
-    toast.success("Filled in from the last invoice — review before saving.");
+      reset({
+        ...getValues(),
+        items: autofillData.items,
+        itemsNote,
+        bottomNote: autofillData.bottomNote,
+      });
+      toast.success(
+        datesUpdated
+          ? "Filled in from the last invoice — the note's dates now match this invoice's period. Review before saving."
+          : "Filled in from the last invoice — review before saving.",
+      );
+    } finally {
+      setAutofillPending(false);
+    }
   }
 
   const onSubmit = handleSubmit(async (values) => {
@@ -415,7 +492,7 @@ export function InvoiceForm({
                       type="button"
                       variant="outline"
                       className="h-7 px-2 text-[11px]"
-                      onClick={handleAutofill}
+                      onClick={() => void handleAutofill()}
                       disabled={autofillPending}
                     >
                       <Sparkles className="h-3.5 w-3.5" />
@@ -503,6 +580,43 @@ export function InvoiceForm({
                 </FormField>
               </div>
 
+              {/*
+                Off by default: the period dates feed the dashboard's
+                "period covered" views on their own; printing them on the
+                document is a per-invoice choice
+                (Docs/implementation_decisions.md §26).
+              */}
+              <div className="flex items-start gap-2">
+                <Controller
+                  name="showPeriodLine"
+                  control={control}
+                  render={({ field }) => (
+                    <Checkbox
+                      id="showPeriodLine"
+                      className="mt-0.5"
+                      checked={field.value ?? false}
+                      onCheckedChange={(checked) =>
+                        field.onChange(checked === true)
+                      }
+                      disabled={!periodLinePreview}
+                    />
+                  )}
+                />
+                <div className="flex flex-col gap-0.5">
+                  <label
+                    htmlFor="showPeriodLine"
+                    className="text-[13px] font-medium text-foreground"
+                  >
+                    Print the covered period on the invoice
+                  </label>
+                  <p className="text-[11px] text-muted-foreground">
+                    {periodLinePreview
+                      ? `Adds “${periodLinePreview}” under the line items.`
+                      : "Set both period dates to enable this."}
+                  </p>
+                </div>
+              </div>
+
               {project.currencyMode === "DUAL" ? (
                 <FormField
                   label={`Converted Total (${project.displayCurrency})`}
@@ -549,7 +663,7 @@ export function InvoiceForm({
                 label="Items Note"
                 htmlFor="itemsNote"
                 error={errors.itemsNote?.message}
-                labelSuffix={improveButton("itemsNote", "itemsNote")}
+                labelSuffix={noteLabelActions("itemsNote", itemsNoteValue)}
                 highlighted={improvedField === "itemsNote"}
               >
                 <Textarea
@@ -564,7 +678,7 @@ export function InvoiceForm({
                 label="Note"
                 htmlFor="bottomNote"
                 error={errors.bottomNote?.message}
-                labelSuffix={improveButton("bottomNote", "bottomNote")}
+                labelSuffix={noteLabelActions("bottomNote", bottomNoteValue)}
                 highlighted={improvedField === "bottomNote"}
               >
                 <Textarea
@@ -602,7 +716,6 @@ export function InvoiceForm({
             </form>
           </CardContent>
         </Card>
-
       </div>
     </>
   );

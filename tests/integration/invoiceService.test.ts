@@ -881,6 +881,26 @@ describe("invoiceService.createDraft/updateDraft — billing period (M39)", () =
     expect(updated.periodStart?.toISOString().slice(0, 10)).toBe("2026-02-01");
     expect(updated.periodEnd?.toISOString().slice(0, 10)).toBe("2026-02-28");
   });
+
+  it("stores showPeriodLine as false unless the input opts in, and flips it on a DRAFT save", async () => {
+    const { project } = await createTestProject();
+    const invoice = await invoiceService.createDraft(
+      project.id,
+      baseInvoiceInput({ periodStart: "2026-01-01", periodEnd: "2026-01-31" }),
+    );
+    createdInvoiceIds.push(invoice.id);
+    expect(invoice.showPeriodLine).toBe(false);
+
+    const updated = await invoiceService.updateDraft(
+      invoice.id,
+      baseInvoiceInput({
+        periodStart: "2026-01-01",
+        periodEnd: "2026-01-31",
+        showPeriodLine: true,
+      }),
+    );
+    expect(updated.showPeriodLine).toBe(true);
+  });
 });
 
 describe("invoiceService.previewNextPeriodStart (M39)", () => {

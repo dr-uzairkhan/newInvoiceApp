@@ -30,6 +30,7 @@ function invoiceSummary(invoice: InvoiceListItem) {
     dueDate: invoice.dueDate,
     periodStart: invoice.periodStart,
     periodEnd: invoice.periodEnd,
+    showPeriodLine: invoice.showPeriodLine,
     subtotal: invoice.subtotal,
     total: invoice.total,
     currency: invoice.currency,
@@ -53,6 +54,7 @@ function invoiceDetail(invoice: InvoiceWithItems) {
     dueDate: invoice.dueDate,
     periodStart: invoice.periodStart,
     periodEnd: invoice.periodEnd,
+    showPeriodLine: invoice.showPeriodLine,
     subtotal: invoice.subtotal,
     total: invoice.total,
     currency: invoice.currency,
@@ -76,7 +78,10 @@ function invoiceDetail(invoice: InvoiceWithItems) {
     project: {
       id: invoice.project.id,
       name: invoice.project.name,
-      client: { id: invoice.project.client.id, name: invoice.project.client.name },
+      client: {
+        id: invoice.project.client.id,
+        name: invoice.project.client.name,
+      },
       contractor: {
         id: invoice.project.contractor.id,
         name: invoice.project.contractor.name,
@@ -93,8 +98,11 @@ export function invoiceToInput(invoice: InvoiceWithItems): InvoiceInput {
     invoiceNumber: invoice.invoiceNumber,
     issueDate: toDateInputValue(invoice.issueDate),
     dueDate: toDateInputValue(invoice.dueDate),
-    periodStart: invoice.periodStart ? toDateInputValue(invoice.periodStart) : "",
+    periodStart: invoice.periodStart
+      ? toDateInputValue(invoice.periodStart)
+      : "",
     periodEnd: invoice.periodEnd ? toDateInputValue(invoice.periodEnd) : "",
+    showPeriodLine: invoice.showPeriodLine,
     convertedTotal: invoice.convertedTotal?.toString() ?? "",
     itemsNote: invoice.itemsNote ?? "",
     bottomNote: invoice.bottomNote ?? "",
@@ -120,7 +128,7 @@ async function loadInvoice(invoiceId: string): Promise<InvoiceWithItems> {
 }
 
 const ITEMS_DOC =
-  "items: each {description, isFlatAmount, isReferralCredit?, quantity, unitPrice, amount, durationText} with every key present as a string (empty string when not applicable). Hourly item: quantity > 0 and unitPrice ≥ 0, amount is computed server-side. Flat item (isFlatAmount true): amount ≥ 0 and durationText required (e.g. \"Fixed\", \"50%\"). At most one referral-credit item (amount is the positive credit, subtracted from the total).";
+  'items: each {description, isFlatAmount, isReferralCredit?, quantity, unitPrice, amount, durationText} with every key present as a string (empty string when not applicable). Hourly item: quantity > 0 and unitPrice ≥ 0, amount is computed server-side. Flat item (isFlatAmount true): amount ≥ 0 and durationText required (e.g. "Fixed", "50%"). At most one referral-credit item (amount is the positive credit, subtracted from the total).';
 
 const statusSchema = z.enum(["DRAFT", "SENT", "PAID", "VOID"]);
 
@@ -146,7 +154,8 @@ export const listInvoices = defineTool({
         : status
           ? await invoiceService.listByStatus(status, { ledger })
           : await invoiceService.list({ ledger });
-    if (status) invoices = invoices.filter((invoice) => invoice.status === status);
+    if (status)
+      invoices = invoices.filter((invoice) => invoice.status === status);
     if (projectId && partyId) {
       invoices = invoices.filter(
         (invoice) => invoice.project.client.id === partyId,
@@ -172,7 +181,9 @@ export const getInvoice = defineTool({
   target: ({ invoiceId }) => ({ type: "invoice", id: invoiceId }),
   handler: async ({ invoiceId }) => {
     const invoice = await loadInvoice(invoiceId);
-    const comments = await invoiceCommentService.summarizeByInvoiceIds([invoiceId]);
+    const comments = await invoiceCommentService.summarizeByInvoiceIds([
+      invoiceId,
+    ]);
     return {
       invoice: invoiceDetail(invoice),
       commentCount: comments.get(invoiceId)?.count ?? 0,
@@ -187,7 +198,10 @@ export const previewNextInvoiceNumber = defineTool({
     "The invoice number the app would suggest for a new invoice in this project, for the given issue date (yyyy-mm-dd, default today), plus the default period start that chains off the last sent invoice.",
   inputSchema: {
     projectId: idSchema,
-    issueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    issueDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
   },
   scope: "READ",
   annotations: { readOnlyHint: true },
@@ -208,7 +222,7 @@ export const previewNextInvoiceNumber = defineTool({
 export const createDraftInvoice = defineTool({
   name: "create_draft_invoice",
   title: "Create draft invoice",
-  description: `Creates a DRAFT invoice for a project. Omit invoiceNumber to use the project's next number for the issue date. Dates are yyyy-mm-dd. periodStart/periodEnd describe the billing period and print on the document. ${ITEMS_DOC} The draft is reviewed and sent from the app or with mark_invoice_sent.`,
+  description: `Creates a DRAFT invoice for a project. Omit invoiceNumber to use the project's next number for the issue date. Dates are yyyy-mm-dd. periodStart/periodEnd describe the billing period; they print on the document only when showPeriodLine is true (default false). ${ITEMS_DOC} The draft is reviewed and sent from the app or with mark_invoice_sent.`,
   inputSchema: {
     projectId: idSchema,
     ...invoiceBaseSchema.shape,
@@ -221,8 +235,12 @@ export const createDraftInvoice = defineTool({
     const invoiceNumber =
       rest.invoiceNumber && rest.invoiceNumber.length > 0
         ? rest.invoiceNumber
-        : (await invoiceService.previewNextInvoiceNumber(projectId, rest.issueDate))
-            .suggested;
+        : (
+            await invoiceService.previewNextInvoiceNumber(
+              projectId,
+              rest.issueDate,
+            )
+          ).suggested;
     const input = invoiceSchema.parse({ ...rest, invoiceNumber });
     const created = await invoiceService.createDraft(
       projectId,
